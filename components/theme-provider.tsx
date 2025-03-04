@@ -1,14 +1,16 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useTheme as useNextTheme } from "next-themes";
 import type { ThemeProviderProps } from "next-themes/dist/types";
-import {
-  ThemeConfig,
-  defaultThemeConfig,
-  applyThemeConfig,
-} from "@/lib/theme-config";
+import { ThemeConfig, themeConfig, applyThemeConfig } from "@/lib/theme-config";
 
 interface ThemeContextType {
   theme: ThemeConfig;
@@ -28,13 +30,13 @@ function useColorScheme() {
 
 // Wrapper component that provides theme context
 function ThemeContextProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<ThemeConfig>(defaultThemeConfig);
+  const [theme, setTheme] = useState<ThemeConfig>(themeConfig);
   const { isDarkMode } = useColorScheme();
 
-  useEffect(() => {
-    // Apply theme configuration when it changes or when dark mode changes
-    applyThemeConfig(theme, isDarkMode);
-  }, [theme, isDarkMode]);
+  // useLayoutEffect(() => {
+  //   // Apply theme configuration when it changes or when dark mode changes
+  //   applyThemeConfig(theme, isDarkMode);
+  // }, [theme, isDarkMode]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, isDarkMode }}>

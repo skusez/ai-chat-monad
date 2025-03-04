@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { generateThemeCSS, themeConfig } from "@/lib/theme-config";
 
 import "./globals.css";
 
@@ -35,6 +36,9 @@ const THEME_COLOR_SCRIPT = `\
   updateThemeColor();
 })();`;
 
+// Generate the theme CSS at build/render time
+const themeCSS = generateThemeCSS(themeConfig);
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -50,6 +54,8 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Inject theme CSS directly as a style tag */}
+        <style id="theme-css" dangerouslySetInnerHTML={{ __html: themeCSS }} />
         <script
           dangerouslySetInnerHTML={{
             __html: THEME_COLOR_SCRIPT,

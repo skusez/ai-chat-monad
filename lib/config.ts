@@ -3,8 +3,9 @@
 // Blockchain ecosystem settings
 export const BLOCKCHAIN_CONFIG = {
   ecosystemName: "Monad", // Name of the blockchain ecosystem
+  ecosystemUrl: "https://monad.xyz",
   description:
-    "A high-performance blockchain ecosystem focused on scalability and security",
+    "A high-performance blockchain ecosystem focused on scalability and security who is looking to onboard high quality projects",
 };
 
 // Token usage limits

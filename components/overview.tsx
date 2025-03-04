@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 
 import { MessageIcon } from "./icons";
+import { BLOCKCHAIN_CONFIG } from "@/lib/config";
 
 export const Overview = () => {
   return (
@@ -19,31 +20,24 @@ export const Overview = () => {
           <MessageIcon size={32} />
         </p>
         <p>
-          This is an{" "}
+          Say hello to your personal{" "}
           <Link
             className="font-medium underline underline-offset-4"
-            href="https://github.com/vercel/ai-chatbot"
+            href={BLOCKCHAIN_CONFIG.ecosystemUrl}
             target="_blank"
           >
-            open source
+            growth hacking guru
           </Link>{" "}
-          chatbot template built with Next.js and the AI SDK by Vercel. It uses
-          the{" "}
-          <code className="rounded-md bg-muted px-1 py-0.5">streamText</code>{" "}
-          function in the server and the{" "}
-          <code className="rounded-md bg-muted px-1 py-0.5">useChat</code> hook
-          on the client to create a seamless chat experience.
-        </p>
-        <p>
-          You can learn more about the AI SDK by visiting the{" "}
+          agent designed to elevate your web3 marketing strategy within the{" "}
           <Link
             className="font-medium underline underline-offset-4"
-            href="https://sdk.vercel.ai/docs"
+            href={BLOCKCHAIN_CONFIG.ecosystemUrl}
             target="_blank"
           >
-            docs
+            {BLOCKCHAIN_CONFIG.ecosystemName} ecosystem
           </Link>
-          .
+          . This chatbot leverages dynamic tools to provide you with expert
+          insights and strategies.
         </p>
       </div>
     </motion.div>
