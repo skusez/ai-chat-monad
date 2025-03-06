@@ -11,11 +11,11 @@ export const BLOCKCHAIN_CONFIG = {
 // Token usage limits
 export const TOKEN_LIMITS = {
   // Default token limit per user per day
-  defaultDailyLimit: 10000,
+  defaultDailyLimit: 100000,
   // Premium tier token limit per user per day
-  premiumDailyLimit: 50000,
+  premiumDailyLimit: 500000,
   // Maximum tokens per request
-  maxTokensPerRequest: 2000,
+  maxTokensPerRequest: 5000,
   // Rate limiting window in seconds (24 hours)
   rateLimitWindow: 86400,
 };

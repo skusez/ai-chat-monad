@@ -27,9 +27,9 @@ function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
       action: "How can I setup my discord server for my community?",
     },
     {
-      title: "Help me write a strategy",
-      label: "for a web3 marketing campaign",
-      action: "Help me write a strategy for a web3 marketing campaign",
+      title: "Help me write a marketing strategy",
+      label: "for my project",
+      action: "Help me write a marketing strategy for my project",
     },
     {
       title: "What are the current trends",

@@ -166,12 +166,8 @@ const PurePreviewMessage = ({
                             result={result}
                             isReadonly={isReadonly}
                           />
-                        ) : toolName === "createTicket" ? (
-                          <DocumentPreview
-                            isReadonly={isReadonly}
-                            result={result}
-                            args={args}
-                          />
+                        ) : toolName === "createBrief" ? (
+                          <pre>{JSON.stringify(result, null, 2)}</pre>
                         ) : (
                           <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}
@@ -201,6 +197,8 @@ const PurePreviewMessage = ({
                           args={args}
                           isReadonly={isReadonly}
                         />
+                      ) : toolName === "createBrief" ? (
+                        <pre>{JSON.stringify(args, null, 2)}</pre>
                       ) : null}
                     </div>
                   );

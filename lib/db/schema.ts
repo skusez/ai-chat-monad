@@ -14,6 +14,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import { VECTOR_DB_CONFIG } from "../config";
+import { SocialMediaPlan } from "../ai/tools/create-brief";
 
 export const user = pgTable("user", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -101,6 +102,38 @@ export const document = pgTable("document", {
 });
 
 export type Document = InferSelectModel<typeof document>;
+
+export const briefStatus = [
+  "pending",
+  "approved",
+  "rejected",
+  "archived",
+] as const;
+
+export const brief = pgTable(
+  "brief",
+  {
+    id: uuid().notNull().defaultRandom().primaryKey(),
+    createdAt: timestamp().notNull(),
+    name: text().notNull(),
+    description: text(),
+    socialMediaPlan: json().$type<SocialMediaPlan[]>(),
+    timeline: text(),
+    website: text(),
+    chatId: uuid()
+      .notNull()
+      .references(() => chat.id),
+    status: text({ enum: briefStatus }).notNull().default("pending"),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => ({
+    userIdIndex: index("brief_userId_idx").using("btree", table.userId),
+  })
+);
+
+export type Brief = InferSelectModel<typeof brief>;
 
 // New table for document embeddings for vector search
 export const documentEmbeddings = pgTable(

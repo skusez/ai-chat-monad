@@ -31,15 +31,8 @@ import { imageArtifact } from "@/artifacts/image/client";
 import { sheetArtifact } from "@/artifacts/sheet/client";
 import { textArtifact } from "@/artifacts/text/client";
 import equal from "fast-deep-equal";
-import { ticketArtifact } from "@/artifacts/ticket/client";
 
-export const artifactDefinitions = [
-  textArtifact,
-
-  imageArtifact,
-  sheetArtifact,
-  ticketArtifact,
-];
+export const artifactDefinitions = [textArtifact, imageArtifact, sheetArtifact];
 export type ArtifactKind = (typeof artifactDefinitions)[number]["kind"];
 
 export interface UIArtifact {

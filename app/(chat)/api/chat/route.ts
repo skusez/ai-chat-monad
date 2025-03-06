@@ -19,18 +19,17 @@ import {
   generateUUID,
   getMostRecentUserMessage,
   sanitizeResponseMessages,
-  estimateTokenCount,
 } from "@/lib/utils";
 
 import { generateTitleFromUserMessage } from "../../actions";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
-import { createTicket } from "@/lib/ai/tools/create-ticket";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { searchSimilarDocuments } from "@/lib/db/vector";
 import { rateLimitRequest, trackTokenUsage } from "@/lib/redis";
 import { CHAT_MODELS_CONFIG } from "@/lib/config";
+import { createBrief } from "@/lib/ai/tools/create-brief";
 
 export const maxDuration = 60;
 
@@ -55,7 +54,6 @@ export async function POST(request: Request) {
   }
 
   // Estimate token count for the request
-  const estimatedTokens = estimateTokenCount(messages);
 
   // Get user information including tier
   const userInfo = await getUser(session.user.email || "");
@@ -66,12 +64,11 @@ export async function POST(request: Request) {
     CHAT_MODELS_CONFIG.tokenCostMultipliers[
       selectedChatModel as keyof typeof CHAT_MODELS_CONFIG.tokenCostMultipliers
     ] || 1;
-  const adjustedTokens = estimatedTokens * modelMultiplier;
 
   // Check rate limiting
   const rateLimitResult = await rateLimitRequest({
     userId: session.user.id,
-    requestTokens: adjustedTokens,
+    requestTokens: 0,
     userTier,
   });
 
@@ -101,7 +98,7 @@ export async function POST(request: Request) {
         ...userMessage,
         createdAt: new Date(),
         chatId: id,
-        tokenCount: estimatedTokens,
+        tokenCount: 0,
       },
     ],
   });
@@ -138,7 +135,7 @@ export async function POST(request: Request) {
                 "createDocument",
                 "updateDocument",
                 "requestSuggestions",
-                "createTicket",
+                "createBrief",
               ],
         experimental_transform: smoothStream({ chunking: "word" }),
         experimental_generateMessageId: generateUUID,
@@ -150,13 +147,13 @@ export async function POST(request: Request) {
             session,
             dataStream,
           }),
-          createTicket: createTicket({
+          createBrief: createBrief({
             session,
             dataStream,
             chatId: id,
           }),
         },
-        onFinish: async ({ response, reasoning }) => {
+        onFinish: async ({ response, reasoning, usage: { totalTokens } }) => {
           if (session.user?.id) {
             try {
               const sanitizedResponseMessages = sanitizeResponseMessages({
@@ -165,13 +162,14 @@ export async function POST(request: Request) {
               });
 
               // Track token usage for the response
-              const responseTokens =
-                estimateTokenCount(sanitizedResponseMessages) * modelMultiplier;
+              const responseTokens = totalTokens * modelMultiplier;
               await trackTokenUsage({
                 userId: session.user.id,
                 tokenCount: responseTokens,
                 model: selectedChatModel,
               });
+
+              console.log({ sanitizedResponseMessages });
 
               await saveMessages({
                 messages: sanitizedResponseMessages.map((message) => {
@@ -181,7 +179,7 @@ export async function POST(request: Request) {
                     role: message.role,
                     content: message.content,
                     createdAt: new Date(),
-                    tokenCount: estimateTokenCount([message]),
+                    tokenCount: totalTokens,
                   };
                 }),
               });

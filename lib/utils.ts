@@ -229,39 +229,3 @@ export function getDocumentTimestampByIndex(
 
   return documents[index].createdAt;
 }
-
-/**
- * Estimates the token count for a message or array of messages
- * This is a simple estimation based on word count, not an exact count
- * @param messages Single message or array of messages
- * @returns Estimated token count
- */
-export function estimateTokenCount(messages: any | any[]): number {
-  // Convert to array if single message
-  const messageArray = Array.isArray(messages) ? messages : [messages];
-
-  let totalTokens = 0;
-
-  for (const message of messageArray) {
-    if (!message || !message.content) continue;
-
-    let content = "";
-
-    // Handle different content formats
-    if (typeof message.content === "string") {
-      content = message.content;
-    } else if (typeof message.content === "object") {
-      // For complex message formats, stringify the content
-      content = JSON.stringify(message.content);
-    }
-
-    // Simple estimation: 1 token ≈ 4 characters
-    const characterCount = content.length;
-    const estimatedTokens = Math.ceil(characterCount / 4);
-
-    // Add base tokens for message metadata (role, etc.)
-    totalTokens += estimatedTokens + 4;
-  }
-
-  return totalTokens;
-}

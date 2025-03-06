@@ -1,7 +1,16 @@
 import "server-only";
 
 import { genSaltSync, hashSync } from "bcrypt-ts";
-import { and, asc, desc, eq, gt, gte, inArray } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  InferInsertModel,
+} from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -16,8 +25,11 @@ import {
   message,
   vote,
   ticket,
+  brief,
+  briefStatus,
 } from "./schema";
 import { ArtifactKind } from "@/components/artifact";
+import { SocialMediaPlan } from "../ai/tools/create-brief";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -411,6 +423,62 @@ export async function getTicketByChatId({ chatId }: { chatId: string }) {
     return tickets.length > 0 ? tickets[0] : null;
   } catch (error) {
     console.error("Failed to get ticket by chatId from database");
+    throw error;
+  }
+}
+
+export async function saveBrief({
+  id,
+  name,
+  description,
+  socialMediaPlan,
+  timeline,
+  userId,
+  chatId,
+  website,
+}: Omit<InferInsertModel<typeof brief>, "createdAt">) {
+  try {
+    return await db.insert(brief).values({
+      id,
+      name,
+      description,
+      socialMediaPlan,
+      timeline,
+      userId,
+      chatId,
+      website,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error("Failed to save brief in database");
+    throw error;
+  }
+}
+
+export async function getBriefs() {
+  try {
+    return await db.select().from(brief).orderBy(desc(brief.createdAt));
+  } catch (error) {
+    console.error("Failed to get briefs from database");
+    throw error;
+  }
+}
+
+export async function updateBriefStatus({
+  id,
+  status,
+}: {
+  id: string;
+  status: (typeof briefStatus)[number];
+}) {
+  try {
+    return await db
+      .update(brief)
+      .set({ status })
+      .where(eq(brief.id, id))
+      .returning();
+  } catch (error) {
+    console.error("Failed to update brief status in database");
     throw error;
   }
 }

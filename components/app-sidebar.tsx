@@ -3,7 +3,7 @@
 import type { User } from "next-auth";
 import { useRouter } from "next/navigation";
 
-import { PlusIcon } from "@/components/icons";
+import { PlusIcon, SettingsIcon } from "@/components/icons";
 import { SidebarHistory } from "@/components/sidebar-history";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,31 @@ export function AppSidebar({ user }: { user: User | undefined }) {
       <SidebarContent>
         <SidebarHistory user={user} />
       </SidebarContent>
-      <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
+      <SidebarFooter>
+        {user && (
+          <>
+            <div className="mb-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/admin");
+                    }}
+                  >
+                    <SettingsIcon className="mr-2 h-4 w-4" />
+                    Admin Dashboard
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Manage Briefs</TooltipContent>
+              </Tooltip>
+            </div>
+            <SidebarUserNav user={user} />
+          </>
+        )}
+      </SidebarFooter>
     </Sidebar>
   );
 }
