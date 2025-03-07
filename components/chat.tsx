@@ -22,12 +22,14 @@ export function Chat({
   selectedChatModel,
   selectedVisibilityType,
   isReadonly,
+  isAdmin = false,
 }: {
   id: string;
   initialMessages: Array<Message>;
   selectedChatModel: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
+  isAdmin?: boolean;
 }) {
   const { mutate } = useSWRConfig();
 
@@ -43,15 +45,20 @@ export function Chat({
     reload,
   } = useChat({
     id,
-    body: { id, selectedChatModel: selectedChatModel },
+    body: {
+      id,
+      selectedChatModel: selectedChatModel,
+      isAdmin: isAdmin,
+    },
     initialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
     generateId: generateUUID,
     onFinish: () => {
-      mutate("/api/history");
+      !isAdmin && mutate("/api/history");
     },
     onError: (error) => {
+      console.error(error);
       toast.error("An error occured, please try again!");
     },
   });
@@ -67,14 +74,17 @@ export function Chat({
   return (
     <>
       <div className="flex flex-col min-w-0 h-dvh bg-background">
-        <ChatHeader
-          chatId={id}
-          selectedModelId={selectedChatModel}
-          selectedVisibilityType={selectedVisibilityType}
-          isReadonly={isReadonly}
-        />
+        {!isAdmin && (
+          <ChatHeader
+            chatId={id}
+            selectedModelId={selectedChatModel}
+            selectedVisibilityType={selectedVisibilityType}
+            isReadonly={isReadonly}
+          />
+        )}
 
         <Messages
+          isAdmin={isAdmin}
           chatId={id}
           isLoading={isLoading}
           votes={votes}
@@ -94,6 +104,7 @@ export function Chat({
               handleSubmit={handleSubmit}
               isLoading={isLoading}
               stop={stop}
+              isAdmin={isAdmin}
               attachments={attachments}
               setAttachments={setAttachments}
               messages={messages}

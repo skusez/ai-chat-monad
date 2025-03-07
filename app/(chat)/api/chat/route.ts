@@ -7,7 +7,7 @@ import {
 
 import { auth } from "@/app/(auth)/auth";
 import { myProvider } from "@/lib/ai/models";
-import { systemPrompt } from "@/lib/ai/prompts";
+import { adminSystemPrompt, systemPrompt } from "@/lib/ai/prompts";
 import {
   deleteChatById,
   getChatById,
@@ -22,14 +22,12 @@ import {
 } from "@/lib/utils";
 
 import { generateTitleFromUserMessage } from "../../actions";
-import { createDocument } from "@/lib/ai/tools/create-document";
-import { updateDocument } from "@/lib/ai/tools/update-document";
-import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
-import { getWeather } from "@/lib/ai/tools/get-weather";
-import { searchSimilarDocuments } from "@/lib/db/vector";
+
 import { rateLimitRequest, trackTokenUsage } from "@/lib/redis";
 import { CHAT_MODELS_CONFIG } from "@/lib/config";
-import { createBrief } from "@/lib/ai/tools/create-brief";
+
+import { createTicket } from "@/lib/ai/tools/create-ticket";
+import { getInformation } from "@/lib/ai/tools/get-information";
 
 export const maxDuration = 60;
 
@@ -38,13 +36,24 @@ export async function POST(request: Request) {
     id,
     messages,
     selectedChatModel,
-  }: { id: string; messages: Array<Message>; selectedChatModel: string } =
-    await request.json();
+    isAdmin,
+  }: {
+    id: string;
+    messages: Array<Message>;
+    selectedChatModel: string;
+    isAdmin: boolean;
+  } = await request.json();
 
   const session = await auth();
 
   if (!session || !session.user || !session.user.id) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  if (isAdmin) {
+    if (session.user.isAdmin !== true) {
+      return new Response("Unauthorized", { status: 401 });
+    }
   }
 
   const userMessage = getMostRecentUserMessage(messages);
@@ -54,44 +63,48 @@ export async function POST(request: Request) {
   }
 
   // Estimate token count for the request
-
-  // Get user information including tier
-  const userInfo = await getUser(session.user.email || "");
-  const userTier = userInfo.length > 0 ? userInfo[0].tier : "free";
-
   // Apply token cost multiplier based on model
   const modelMultiplier =
     CHAT_MODELS_CONFIG.tokenCostMultipliers[
       selectedChatModel as keyof typeof CHAT_MODELS_CONFIG.tokenCostMultipliers
     ] || 1;
+  if (!isAdmin) {
+    // Get user information including tier
+    const userInfo = await getUser(session.user.email || "");
+    const userTier = userInfo.length > 0 ? userInfo[0].tier : "free";
 
-  // Check rate limiting
-  const rateLimitResult = await rateLimitRequest({
-    userId: session.user.id,
-    requestTokens: 0,
-    userTier,
-  });
+    // Check rate limiting
+    const rateLimitResult = await rateLimitRequest({
+      userId: session.user.id,
+      requestTokens: 0,
+      userTier,
+    });
 
-  if (!rateLimitResult.allowed) {
-    return new Response(
-      JSON.stringify({
-        error: rateLimitResult.reason,
-        details: rateLimitResult,
-      }),
-      {
-        status: 429,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: rateLimitResult.reason,
+          details: rateLimitResult,
+        }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
   }
 
-  const chat = await getChatById({ id });
-
-  if (!chat) {
-    const title = await generateTitleFromUserMessage({ message: userMessage });
-    await saveChat({ id, userId: session.user.id, title });
+  if (!isAdmin) {
+    const chat = await getChatById({ id });
+    if (!chat) {
+      const title = await generateTitleFromUserMessage({
+        message: userMessage,
+      });
+      await saveChat({ id, userId: session.user.id, title });
+    }
   }
 
+  // this is for saving the user message
   await saveMessages({
     messages: [
       {
@@ -99,58 +112,44 @@ export async function POST(request: Request) {
         createdAt: new Date(),
         chatId: id,
         tokenCount: 0,
+        role: "user",
       },
     ],
   });
-
-  // Perform RAG to get relevant context
-  let context = "";
-  try {
-    const similarDocuments = await searchSimilarDocuments({
-      query: userMessage.content.toString(),
-    });
-    if (similarDocuments && similarDocuments.length > 0) {
-      context = similarDocuments.map((doc: any) => doc.content).join("\n\n");
-    }
-  } catch (error) {
-    console.error("Error retrieving context for RAG:", error);
-    // Continue without context if there's an error
-  }
 
   return createDataStreamResponse({
     execute: (dataStream) => {
       const result = streamText({
         model: myProvider.languageModel(selectedChatModel),
-        system: systemPrompt({
-          selectedChatModel,
-          context, // Pass the RAG context to the system prompt
-        }),
+        system: isAdmin
+          ? adminSystemPrompt()
+          : systemPrompt({
+              selectedChatModel,
+            }),
         messages,
         maxSteps: 5,
-        experimental_activeTools:
-          selectedChatModel === "chat-model-reasoning"
-            ? []
-            : [
-                "getWeather",
-                "createDocument",
-                "updateDocument",
-                "requestSuggestions",
-                "createBrief",
-              ],
+        experimental_activeTools: isAdmin
+          ? ["getInformation"]
+          : [
+              // "getWeather",
+              // "createDocument",
+              // "updateDocument",
+              // "requestSuggestions",
+              "getInformation",
+              "createTicket",
+            ],
         experimental_transform: smoothStream({ chunking: "word" }),
         experimental_generateMessageId: generateUUID,
         tools: {
-          getWeather,
-          createDocument: createDocument({ session, dataStream }),
-          updateDocument: updateDocument({ session, dataStream }),
-          requestSuggestions: requestSuggestions({
-            session,
-            dataStream,
-          }),
-          createBrief: createBrief({
+          createTicket: createTicket({
             session,
             dataStream,
             chatId: id,
+            messageId: userMessage.id,
+          }),
+          getInformation: getInformation({
+            session,
+            dataStream,
           }),
         },
         onFinish: async ({ response, reasoning, usage: { totalTokens } }) => {
@@ -161,16 +160,17 @@ export async function POST(request: Request) {
                 reasoning,
               });
 
-              // Track token usage for the response
-              const responseTokens = totalTokens * modelMultiplier;
-              await trackTokenUsage({
-                userId: session.user.id,
-                tokenCount: responseTokens,
-                model: selectedChatModel,
-              });
+              if (!isAdmin) {
+                // Track token usage for the response
+                const responseTokens = totalTokens * modelMultiplier;
+                await trackTokenUsage({
+                  userId: session.user.id,
+                  tokenCount: responseTokens,
+                  model: selectedChatModel,
+                });
+              }
 
-              console.log({ sanitizedResponseMessages });
-
+              // this is for saving the ai response messages
               await saveMessages({
                 messages: sanitizedResponseMessages.map((message) => {
                   return {
@@ -188,6 +188,7 @@ export async function POST(request: Request) {
             }
           }
         },
+
         experimental_telemetry: {
           isEnabled: true,
           functionId: "stream-text",
@@ -200,7 +201,8 @@ export async function POST(request: Request) {
         sendReasoning: true,
       });
     },
-    onError: () => {
+    onError: (e) => {
+      console.error("Failed to stream text", e);
       return "Oops, an error occured!";
     },
   });

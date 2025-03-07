@@ -19,7 +19,13 @@ import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { themeConfig } from "@/lib/theme-config";
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar({
+  user,
+  isAdminPage,
+}: {
+  user: User | undefined;
+  isAdminPage: boolean;
+}) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
 
@@ -36,53 +42,71 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               className="flex flex-row gap-3 items-center"
             >
               <span className="text-lg font-semibold px-2 hover:bg-muted rounded-md cursor-pointer">
-                {themeConfig.sidebar.label}
+                {isAdminPage ? "Questions" : themeConfig.sidebar.label}
               </span>
             </Link>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  className="p-2 h-fit"
-                  onClick={() => {
-                    setOpenMobile(false);
-                    router.push("/");
-                    router.refresh();
-                  }}
-                >
-                  <PlusIcon />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent align="end">New Chat</TooltipContent>
-            </Tooltip>
-          </div>
-        </SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarHistory user={user} />
-      </SidebarContent>
-      <SidebarFooter>
-        {user && (
-          <>
-            <div className="mb-2">
+            {!isAdminPage && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="w-full justify-start"
+                    type="button"
+                    className="p-2 h-fit"
                     onClick={() => {
                       setOpenMobile(false);
-                      router.push("/admin");
+                      router.push("/");
+                      router.refresh();
                     }}
                   >
-                    <SettingsIcon className="mr-2 h-4 w-4" />
-                    Admin Dashboard
+                    <PlusIcon />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="right">Manage Briefs</TooltipContent>
+                <TooltipContent align="end">New Chat</TooltipContent>
               </Tooltip>
-            </div>
+            )}
+          </div>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarHistory user={user} isAdminPage={isAdminPage} />
+      </SidebarContent>
+      <SidebarFooter>
+        {user && (
+          <>
+            {user.isAdmin && isAdminPage ? (
+              <div className="mb-2">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setOpenMobile(false);
+                    router.push("/");
+                  }}
+                >
+                  <SettingsIcon className="mr-2 h-4 w-4" />
+                  User Dashboard
+                </Button>
+              </div>
+            ) : (
+              <div className="mb-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setOpenMobile(false);
+                        router.push("/admin");
+                      }}
+                    >
+                      <SettingsIcon className="mr-2 h-4 w-4" />
+                      Admin Dashboard
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Manage Briefs</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
             <SidebarUserNav user={user} />
           </>
         )}

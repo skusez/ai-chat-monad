@@ -1,6 +1,5 @@
 import "server-only";
 
-import { genSaltSync, hashSync } from "bcrypt-ts";
 import {
   and,
   asc,
@@ -10,6 +9,7 @@ import {
   gte,
   inArray,
   InferInsertModel,
+  sql,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -25,11 +25,10 @@ import {
   message,
   vote,
   ticket,
-  brief,
-  briefStatus,
+  userTicket,
+  MessageInsert,
 } from "./schema";
 import { ArtifactKind } from "@/components/artifact";
-import { SocialMediaPlan } from "../ai/tools/create-brief";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -44,18 +43,6 @@ export async function getUser(email: string): Promise<Array<User>> {
     return await db.select().from(user).where(eq(user.email, email));
   } catch (error) {
     console.error("Failed to get user from database");
-    throw error;
-  }
-}
-
-export async function createUser(email: string, password: string) {
-  const salt = genSaltSync(10);
-  const hash = hashSync(password, salt);
-
-  try {
-    return await db.insert(user).values({ email, password: hash });
-  } catch (error) {
-    console.error("Failed to create user in database");
     throw error;
   }
 }
@@ -117,7 +104,11 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
-export async function saveMessages({ messages }: { messages: Array<Message> }) {
+export async function saveMessages({
+  messages,
+}: {
+  messages: Array<MessageInsert>;
+}) {
   try {
     return await db.insert(message).values(messages);
   } catch (error) {
@@ -361,25 +352,52 @@ export async function updateChatVisiblityById({
 
 export async function saveTicket({
   chatId,
-  projectName,
-  projectWebsite,
-  resolved = false,
-}: {
-  chatId: string;
-  projectName: string;
-  projectWebsite: string;
-  resolved?: boolean;
-}) {
+  question,
+  userId,
+  messageId,
+}: InferInsertModel<typeof ticket> & { userId: string; messageId: string }) {
   try {
-    return await db.insert(ticket).values({
-      chatId,
-      projectName,
-      projectWebsite,
-      resolved,
-      createdAt: new Date(),
+    const [newTicket] = await db
+      .insert(ticket)
+      .values({
+        chatId,
+        question,
+        messageId,
+        resolved: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    await addUserToTicket({
+      userId,
+      ticketId: newTicket.id,
     });
+
+    return newTicket;
   } catch (error) {
     console.error("Failed to create ticket in database");
+    throw error;
+  }
+}
+
+export async function addUserToTicket({
+  userId,
+  ticketId,
+}: {
+  userId: string;
+  ticketId: string;
+}) {
+  try {
+    return await db
+      .insert(userTicket)
+      .values({
+        userId,
+        ticketId,
+      })
+      .onConflictDoNothing();
+  } catch (error) {
+    console.error("Failed to add user to ticket in database");
     throw error;
   }
 }
@@ -427,58 +445,26 @@ export async function getTicketByChatId({ chatId }: { chatId: string }) {
   }
 }
 
-export async function saveBrief({
-  id,
-  name,
-  description,
-  socialMediaPlan,
-  timeline,
-  userId,
-  chatId,
-  website,
-}: Omit<InferInsertModel<typeof brief>, "createdAt">) {
+export async function getUnresolvedQuestions() {
   try {
-    return await db.insert(brief).values({
-      id,
-      name,
-      description,
-      socialMediaPlan,
-      timeline,
-      userId,
-      chatId,
-      website,
-      createdAt: new Date(),
-    });
+    const questions = await db
+      .select({
+        ticket,
+        userTicketCount: sql<number>`COUNT(${userTicket.ticketId})`.as(
+          "userTicketCount"
+        ),
+      })
+      .from(ticket)
+      .leftJoin(userTicket, eq(ticket.id, userTicket.ticketId))
+      .where(eq(ticket.resolved, false))
+      .groupBy(ticket.id);
+    return questions;
   } catch (error) {
-    console.error("Failed to save brief in database");
+    console.error("Failed to get unresolved questions from database");
     throw error;
   }
 }
 
-export async function getBriefs() {
-  try {
-    return await db.select().from(brief).orderBy(desc(brief.createdAt));
-  } catch (error) {
-    console.error("Failed to get briefs from database");
-    throw error;
-  }
-}
-
-export async function updateBriefStatus({
-  id,
-  status,
-}: {
-  id: string;
-  status: (typeof briefStatus)[number];
-}) {
-  try {
-    return await db
-      .update(brief)
-      .set({ status })
-      .where(eq(brief.id, id))
-      .returning();
-  } catch (error) {
-    console.error("Failed to update brief status in database");
-    throw error;
-  }
-}
+export type Question = Awaited<
+  ReturnType<typeof getUnresolvedQuestions>
+>[number];

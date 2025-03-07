@@ -16,7 +16,7 @@ export const themeConfig = {
       popover: "0 0% 100%",
       "popover-foreground": "240 20% 20%",
       muted: "249 80% 95%",
-      "muted-foreground": "240 50% 10%",
+      "muted-foreground": "240 50% 70%",
       accent: "249 52% 65%",
       "accent-foreground": "0 0% 98%",
       sidebar: "240 10% 10%",

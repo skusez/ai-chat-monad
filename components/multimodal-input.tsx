@@ -43,6 +43,7 @@ function PureMultimodalInput({
   append,
   handleSubmit,
   className,
+  isAdmin = false,
 }: {
   chatId: string;
   input: string;
@@ -64,6 +65,7 @@ function PureMultimodalInput({
     chatRequestOptions?: ChatRequestOptions
   ) => void;
   className?: string;
+  isAdmin?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -118,7 +120,9 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
-    window.history.replaceState({}, "", `/chat/${chatId}`);
+    if (!isAdmin) {
+      window.history.replaceState({}, "", `/chat/${chatId}`);
+    }
 
     handleSubmit(undefined, {
       experimental_attachments: attachments,
@@ -198,7 +202,11 @@ function PureMultimodalInput({
       {messages.length === 0 &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
-          <SuggestedActions append={append} chatId={chatId} />
+          <SuggestedActions
+            append={append}
+            chatId={chatId}
+            isAdminPage={isAdmin}
+          />
         )}
 
       <input

@@ -12,31 +12,49 @@ interface SuggestedActionsProps {
     message: Message | CreateMessage,
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
+  isAdminPage: boolean;
 }
 
-function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
-  const suggestedActions = [
-    {
-      title: "Get the attention of KOLs",
-      label: `in the ${BLOCKCHAIN_CONFIG.ecosystemName} ecosystem`,
-      action: `How do I get the attention of KOLs in the ${BLOCKCHAIN_CONFIG.ecosystemName} ecosystem?`,
-    },
-    {
-      title: "Setup my discord server",
-      label: "for my community",
-      action: "How can I setup my discord server for my community?",
-    },
-    {
-      title: "Help me write a marketing strategy",
-      label: "for my project",
-      action: "Help me write a marketing strategy for my project",
-    },
-    {
-      title: "What are the current trends",
-      label: "in web3 marketing?",
-      action: "What are the current trends in web3 marketing?",
-    },
-  ];
+function PureSuggestedActions({
+  chatId,
+  append,
+  isAdminPage,
+}: SuggestedActionsProps) {
+  const suggestedActions = isAdminPage
+    ? [
+        {
+          title: "Get the most asked question today",
+          action: `Query the database for the question that has been asked the most in the last 24 hours`,
+          label: "that hasn't been answered yet",
+        },
+        {
+          title: "Show me 5 recently asked questions",
+          action: `Query the database for the 5 most recently asked questions`,
+          label: "recently asked",
+        },
+      ]
+    : [
+        {
+          title: "Get the attention of KOLs",
+          label: `in the ${BLOCKCHAIN_CONFIG.ecosystemName} ecosystem`,
+          action: `How do I get the attention of KOLs in the ${BLOCKCHAIN_CONFIG.ecosystemName} ecosystem?`,
+        },
+        {
+          title: "Setup my discord server",
+          label: "for my community",
+          action: "How can I setup my discord server for my community?",
+        },
+        {
+          title: "Help me write a marketing strategy",
+          label: "for my project",
+          action: "Help me write a marketing strategy for my project",
+        },
+        {
+          title: "What are the current trends",
+          label: "in web3 marketing?",
+          action: "What are the current trends in web3 marketing?",
+        },
+      ];
 
   return (
     <div className="grid sm:grid-cols-2 gap-2 w-full">

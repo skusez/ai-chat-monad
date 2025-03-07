@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { auth } from "../../(auth)/auth";
 import { cookies } from "next/headers";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AdminSidebar } from "@/components/admin-sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 
 export default async function AdminLayout({
   children,
@@ -14,7 +14,7 @@ export default async function AdminLayout({
 
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
-      <AdminSidebar user={session?.user} />
+      <AppSidebar user={session?.user} isAdminPage={true} />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   );

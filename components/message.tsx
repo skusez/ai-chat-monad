@@ -3,17 +3,12 @@
 import type { ChatRequestOptions, Message } from "ai";
 import cx from "classnames";
 import { AnimatePresence, motion } from "framer-motion";
-import { memo, useMemo, useState } from "react";
+import { memo, useState } from "react";
 
 import type { Vote } from "@/lib/db/schema";
 
 import { DocumentToolCall, DocumentToolResult } from "./document";
-import {
-  ChevronDownIcon,
-  LoaderIcon,
-  PencilEditIcon,
-  SparklesIcon,
-} from "./icons";
+import { PencilEditIcon, SparklesIcon } from "./icons";
 import { Markdown } from "./markdown";
 import { MessageActions } from "./message-actions";
 import { PreviewAttachment } from "./preview-attachment";
@@ -34,6 +29,8 @@ const PurePreviewMessage = ({
   setMessages,
   reload,
   isReadonly,
+  isAdmin = false,
+  isAdminMessage = false,
 }: {
   chatId: string;
   message: Message;
@@ -46,6 +43,8 @@ const PurePreviewMessage = ({
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
   isReadonly: boolean;
+  isAdmin?: boolean;
+  isAdminMessage?: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
 
@@ -95,7 +94,7 @@ const PurePreviewMessage = ({
 
             {(message.content || message.reasoning) && mode === "view" && (
               <div className="flex flex-row gap-2 items-start">
-                {message.role === "user" && !isReadonly && (
+                {message.role === "user" && !isReadonly && !isAdmin && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -116,6 +115,8 @@ const PurePreviewMessage = ({
                   className={cn("flex flex-col gap-4", {
                     "bg-primary text-primary-foreground px-3 py-2 rounded-3xl":
                       message.role === "user",
+                    "bg-accent text-primary-foreground px-3 py-2 rounded-3xl":
+                      isAdminMessage,
                   })}
                 >
                   <Markdown>{message.content as string}</Markdown>
@@ -123,7 +124,7 @@ const PurePreviewMessage = ({
               </div>
             )}
 
-            {message.content && mode === "edit" && (
+            {message.content && mode === "edit" && !isAdmin && (
               <div className="flex flex-row gap-2 items-start">
                 <div className="size-8" />
 
@@ -141,7 +142,7 @@ const PurePreviewMessage = ({
               <div className="flex flex-col gap-4">
                 {message.toolInvocations.map((toolInvocation) => {
                   const { toolName, toolCallId, state, args } = toolInvocation;
-
+                  console.log({ toolName });
                   if (state === "result") {
                     const { result } = toolInvocation;
 
@@ -167,7 +168,7 @@ const PurePreviewMessage = ({
                             isReadonly={isReadonly}
                           />
                         ) : toolName === "createBrief" ? (
-                          <pre>{JSON.stringify(result, null, 2)}</pre>
+                          <>{null}</>
                         ) : (
                           <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}
@@ -197,8 +198,6 @@ const PurePreviewMessage = ({
                           args={args}
                           isReadonly={isReadonly}
                         />
-                      ) : toolName === "createBrief" ? (
-                        <pre>{JSON.stringify(args, null, 2)}</pre>
                       ) : null}
                     </div>
                   );
@@ -206,7 +205,7 @@ const PurePreviewMessage = ({
               </div>
             )}
 
-            {!isReadonly && (
+            {!isReadonly && !isAdmin && (
               <MessageActions
                 key={`action-${message.id}`}
                 chatId={chatId}

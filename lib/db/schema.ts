@@ -1,4 +1,4 @@
-import type { InferSelectModel } from "drizzle-orm";
+import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import {
   pgTable,
   varchar,
@@ -14,15 +14,20 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 import { VECTOR_DB_CONFIG } from "../config";
-import { SocialMediaPlan } from "../ai/tools/create-brief";
+import type { AdapterAccountType } from "next-auth/adapters";
 
 export const user = pgTable("user", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  email: varchar("email", { length: 64 }).notNull(),
-  password: varchar("password", { length: 64 }),
-  tier: varchar("tier", { enum: ["free", "premium"] })
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  email: text("email").notNull(),
+  emailVerified: timestamp("email_verified", { mode: "date" }),
+  image: text("image"),
+  name: text("name"),
+  tier: text("tier", { enum: ["free", "premium"] })
     .notNull()
     .default("free"),
+  isAdmin: boolean().notNull().default(false),
 });
 
 export type User = InferSelectModel<typeof user>;
@@ -31,12 +36,13 @@ export const chat = pgTable("chat", {
   id: uuid().primaryKey().notNull().defaultRandom(),
   createdAt: timestamp().notNull(),
   title: text().notNull(),
-  userId: uuid()
+  userId: text()
     .notNull()
     .references(() => user.id),
   visibility: varchar("visibility", { enum: ["public", "private"] })
     .notNull()
     .default("private"),
+  questionAnsweredCount: integer().notNull().default(0),
 });
 
 export type Chat = InferSelectModel<typeof chat>;
@@ -46,13 +52,23 @@ export const ticket = pgTable("ticket", {
   chatId: uuid()
     .notNull()
     .references(() => chat.id, { onDelete: "cascade" }),
-  projectName: text(),
-  projectWebsite: text(),
+  question: text().notNull(),
+  messageId: uuid()
+    .notNull()
+    .references(() => message.id),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
   resolved: boolean().notNull().default(false),
 });
 
+export const userTicket = pgTable("user_ticket", {
+  userId: text()
+    .notNull()
+    .references(() => user.id),
+  ticketId: uuid()
+    .notNull()
+    .references(() => ticket.id),
+});
 export type Ticket = InferSelectModel<typeof ticket>;
 
 export const message = pgTable("message", {
@@ -67,6 +83,7 @@ export const message = pgTable("message", {
 });
 
 export type Message = InferSelectModel<typeof message>;
+export type MessageInsert = InferInsertModel<typeof message>;
 
 export const vote = pgTable(
   "vote",
@@ -96,44 +113,12 @@ export const document = pgTable("document", {
   kind: varchar({ enum: ["text", "code", "image", "sheet", "ticket"] })
     .notNull()
     .default("text"),
-  userId: uuid()
+  userId: text()
     .notNull()
     .references(() => user.id),
 });
 
 export type Document = InferSelectModel<typeof document>;
-
-export const briefStatus = [
-  "pending",
-  "approved",
-  "rejected",
-  "archived",
-] as const;
-
-export const brief = pgTable(
-  "brief",
-  {
-    id: uuid().notNull().defaultRandom().primaryKey(),
-    createdAt: timestamp().notNull(),
-    name: text().notNull(),
-    description: text(),
-    socialMediaPlan: json().$type<SocialMediaPlan[]>(),
-    timeline: text(),
-    website: text(),
-    chatId: uuid()
-      .notNull()
-      .references(() => chat.id),
-    status: text({ enum: briefStatus }).notNull().default("pending"),
-    userId: uuid()
-      .notNull()
-      .references(() => user.id),
-  },
-  (table) => ({
-    userIdIndex: index("brief_userId_idx").using("btree", table.userId),
-  })
-);
-
-export type Brief = InferSelectModel<typeof brief>;
 
 // New table for document embeddings for vector search
 export const documentEmbeddings = pgTable(
@@ -160,10 +145,34 @@ export const documentEmbeddings = pgTable(
 
 export type DocumentEmbedding = InferSelectModel<typeof documentEmbeddings>;
 
+export const ticketEmbeddings = pgTable(
+  "ticket_embeddings",
+  {
+    id: uuid().notNull().defaultRandom().primaryKey(),
+    ticketId: uuid()
+      .notNull()
+      .references(() => ticket.id),
+    embedding: vector("embedding", {
+      dimensions: VECTOR_DB_CONFIG.vectorDimension,
+    }),
+    question: text().notNull(),
+    metadata: json(),
+    createdAt: timestamp().notNull(),
+  },
+  (table) => ({
+    idx: index("ticket_embeddings_vector_idx").using(
+      "hnsw",
+      table.embedding.op("vector_cosine_ops")
+    ),
+  })
+);
+
+export type TicketEmbedding = InferSelectModel<typeof ticketEmbeddings>;
+
 // New table for tracking token usage for rate limiting
 export const tokenUsage = pgTable("token_usage", {
   id: uuid().notNull().defaultRandom().primaryKey(),
-  userId: uuid()
+  userId: text()
     .notNull()
     .references(() => user.id),
   tokenCount: integer().notNull(),
@@ -183,7 +192,7 @@ export const suggestion = pgTable(
     suggestedText: text().notNull(),
     description: text(),
     isResolved: boolean().notNull().default(false),
-    userId: uuid()
+    userId: text()
       .notNull()
       .references(() => user.id),
     createdAt: timestamp().notNull(),
@@ -197,3 +206,74 @@ export const suggestion = pgTable(
 );
 
 export type Suggestion = InferSelectModel<typeof suggestion>;
+
+/** Auth tables */
+
+export const account = pgTable(
+  "account",
+  {
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: text().$type<AdapterAccountType>().notNull(),
+    provider: text().notNull(),
+    providerAccountId: text().notNull(),
+    refresh_token: text(),
+    access_token: text(),
+    expires_at: integer(),
+    token_type: text(),
+    scope: text(),
+    id_token: text(),
+    session_state: text(),
+  },
+  (table) => ({
+    compoundKey: primaryKey({
+      columns: [table.provider, table.providerAccountId],
+    }),
+  })
+);
+
+export const session = pgTable("session", {
+  sessionToken: text().primaryKey(),
+  userId: text()
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  expires: timestamp({ mode: "date" }).notNull(),
+});
+
+export const verificationToken = pgTable(
+  "verification_token",
+  {
+    identifier: text().notNull(),
+    token: text().notNull(),
+    expires: timestamp({ mode: "date" }).notNull(),
+  },
+  (table) => ({
+    compositePk: primaryKey({
+      columns: [table.identifier, table.token],
+    }),
+  })
+);
+
+export const authenticator = pgTable(
+  "authenticator",
+  {
+    // @dev stupid fucking authjs enforcing weird shit
+    userId: text("userid")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credentialID: text("credentialid").notNull().unique(),
+    providerAccountId: text().notNull(),
+    credentialPublicKey: text().notNull(),
+    counter: integer().notNull(),
+    credentialDeviceType: text().notNull(),
+    credentialBackedUp: boolean().notNull(),
+    transports: text(),
+  },
+  (table) => ({
+    compositePK: primaryKey({
+      name: "authenticator_userid_credentialid_pk",
+      columns: [table.userId, table.credentialID],
+    }),
+  })
+);
