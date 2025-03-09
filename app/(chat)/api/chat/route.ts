@@ -28,6 +28,8 @@ import { CHAT_MODELS_CONFIG } from "@/lib/config";
 
 import { createTicket } from "@/lib/ai/tools/create-ticket";
 import { getInformation } from "@/lib/ai/tools/get-information";
+import { getTickets } from "@/lib/ai/tools/get-tickets";
+import { Chat } from "@/lib/db/schema";
 
 export const maxDuration = 60;
 
@@ -94,18 +96,17 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!isAdmin) {
-    const chat = await getChatById({ id });
-    if (!chat) {
-      const title = await generateTitleFromUserMessage({
-        message: userMessage,
-      });
-      await saveChat({ id, userId: session.user.id, title });
-    }
+  const chat = await getChatById({ id, isAdmin });
+  if (!chat) {
+    const title = await generateTitleFromUserMessage({
+      message: userMessage,
+    });
+    await saveChat({ id, userId: session.user.id, title, isAdmin });
   }
 
   // this is for saving the user message
   await saveMessages({
+    isAdmin,
     messages: [
       {
         ...userMessage,
@@ -122,14 +123,18 @@ export async function POST(request: Request) {
       const result = streamText({
         model: myProvider.languageModel(selectedChatModel),
         system: isAdmin
-          ? adminSystemPrompt()
+          ? // ! 1. engineer the prompt
+            // ! 2. create the tables for question embeddings
+            // ! 3. give agent access to database table (fetch questions)
+            // ! 4. ui changes
+            adminSystemPrompt
           : systemPrompt({
               selectedChatModel,
             }),
         messages,
         maxSteps: 5,
         experimental_activeTools: isAdmin
-          ? ["getInformation"]
+          ? ["getInformation", "getTickets"]
           : [
               // "getWeather",
               // "createDocument",
@@ -148,6 +153,10 @@ export async function POST(request: Request) {
             messageId: userMessage.id,
           }),
           getInformation: getInformation({
+            session,
+            dataStream,
+          }),
+          getTickets: getTickets({
             session,
             dataStream,
           }),
@@ -172,6 +181,7 @@ export async function POST(request: Request) {
 
               // this is for saving the ai response messages
               await saveMessages({
+                isAdmin,
                 messages: sanitizedResponseMessages.map((message) => {
                   return {
                     id: message.id,
@@ -223,13 +233,13 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const chat = await getChatById({ id });
+    const chat = (await getChatById({ id, isAdmin: false })) as Chat;
 
     if (chat.userId !== session.user.id) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    await deleteChatById({ id });
+    await deleteChatById({ id, isAdmin: false });
 
     return new Response("Chat deleted", { status: 200 });
   } catch (error) {

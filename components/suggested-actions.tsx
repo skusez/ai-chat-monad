@@ -70,7 +70,11 @@ function PureSuggestedActions({
           <Button
             variant="ghost"
             onClick={async () => {
-              window.history.replaceState({}, "", `/chat/${chatId}`);
+              if (isAdminPage) {
+                window.history.replaceState({}, "", `/admin/chat/${chatId}`);
+              } else {
+                window.history.replaceState({}, "", `/chat/${chatId}`);
+              }
 
               append({
                 role: "user",

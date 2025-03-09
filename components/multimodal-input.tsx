@@ -120,7 +120,9 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
-    if (!isAdmin) {
+    if (isAdmin) {
+      window.history.replaceState({}, "", `/admin/chat/${chatId}`);
+    } else {
       window.history.replaceState({}, "", `/chat/${chatId}`);
     }
 

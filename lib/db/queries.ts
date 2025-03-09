@@ -27,6 +27,8 @@ import {
   ticket,
   userTicket,
   MessageInsert,
+  adminChat,
+  adminMessage,
 } from "./schema";
 import { ArtifactKind } from "@/components/artifact";
 
@@ -51,13 +53,15 @@ export async function saveChat({
   id,
   userId,
   title,
+  isAdmin,
 }: {
   id: string;
   userId: string;
   title: string;
+  isAdmin: boolean;
 }) {
   try {
-    return await db.insert(chat).values({
+    return await db.insert(isAdmin ? adminChat : chat).values({
       id,
       createdAt: new Date(),
       userId,
@@ -69,34 +73,59 @@ export async function saveChat({
   }
 }
 
-export async function deleteChatById({ id }: { id: string }) {
+export async function deleteChatById({
+  id,
+  isAdmin,
+}: {
+  id: string;
+  isAdmin: boolean;
+}) {
   try {
     await db.delete(vote).where(eq(vote.chatId, id));
-    await db.delete(message).where(eq(message.chatId, id));
+    await db
+      .delete(isAdmin ? adminChat : chat)
+      .where(eq(isAdmin ? adminChat.id : chat.id, id));
 
-    return await db.delete(chat).where(eq(chat.id, id));
+    return await db
+      .delete(isAdmin ? adminChat : chat)
+      .where(eq(isAdmin ? adminChat.id : chat.id, id));
   } catch (error) {
     console.error("Failed to delete chat by id from database");
     throw error;
   }
 }
 
-export async function getChatsByUserId({ id }: { id: string }) {
+export async function getChatsByUserId({
+  id,
+  isAdmin,
+}: {
+  id: string;
+  isAdmin: boolean;
+}) {
   try {
     return await db
       .select()
-      .from(chat)
-      .where(eq(chat.userId, id))
-      .orderBy(desc(chat.createdAt));
+      .from(isAdmin ? adminChat : chat)
+      .where(eq(isAdmin ? adminChat.userId : chat.userId, id))
+      .orderBy(desc(isAdmin ? adminChat.createdAt : chat.createdAt));
   } catch (error) {
     console.error("Failed to get chats by user from database");
     throw error;
   }
 }
 
-export async function getChatById({ id }: { id: string }) {
+export async function getChatById({
+  id,
+  isAdmin,
+}: {
+  id: string;
+  isAdmin: boolean;
+}) {
   try {
-    const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id));
+    const [selectedChat] = await db
+      .select()
+      .from(isAdmin ? adminChat : chat)
+      .where(eq(isAdmin ? adminChat.id : chat.id, id));
     return selectedChat;
   } catch (error) {
     console.error("Failed to get chat by id from database");
@@ -106,24 +135,33 @@ export async function getChatById({ id }: { id: string }) {
 
 export async function saveMessages({
   messages,
+  isAdmin,
 }: {
   messages: Array<MessageInsert>;
+  isAdmin: boolean;
 }) {
   try {
-    return await db.insert(message).values(messages);
+    return await db.insert(isAdmin ? adminMessage : message).values(messages);
   } catch (error) {
     console.error("Failed to save messages in database", error);
     throw error;
   }
 }
 
-export async function getMessagesByChatId({ id }: { id: string }) {
+export async function getMessagesByChatId({
+  id,
+  isAdmin,
+}: {
+  id: string;
+  isAdmin: boolean;
+}) {
+  const table = isAdmin ? adminMessage : message;
   try {
     return await db
       .select()
-      .from(message)
-      .where(eq(message.chatId, id))
-      .orderBy(asc(message.createdAt));
+      .from(table)
+      .where(eq(table.chatId, id))
+      .orderBy(asc(table.createdAt));
   } catch (error) {
     console.error("Failed to get messages by chat id from database", error);
     throw error;

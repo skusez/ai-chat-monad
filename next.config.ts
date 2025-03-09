@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   experimental: {
     ppr: "incremental",
     useCache: true,
+    authInterrupts: true,
   },
   images: {
     remotePatterns: [

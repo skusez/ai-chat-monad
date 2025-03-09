@@ -24,6 +24,7 @@ export const user = pgTable("user", {
   emailVerified: timestamp("email_verified", { mode: "date" }),
   image: text("image"),
   name: text("name"),
+  password: text("password"),
   tier: text("tier", { enum: ["free", "premium"] })
     .notNull()
     .default("free"),
@@ -45,21 +46,54 @@ export const chat = pgTable("chat", {
   questionAnsweredCount: integer().notNull().default(0),
 });
 
+export const adminChat = pgTable("admin_chat", {
+  id: uuid().primaryKey().notNull().defaultRandom(),
+  createdAt: timestamp().notNull(),
+  title: text().notNull(),
+  userId: text()
+    .notNull()
+    .references(() => user.id),
+});
+
 export type Chat = InferSelectModel<typeof chat>;
 
 export const ticket = pgTable("ticket", {
-  id: uuid().primaryKey().notNull().defaultRandom(),
-  chatId: uuid()
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  chatId: uuid("chat_id")
     .notNull()
     .references(() => chat.id, { onDelete: "cascade" }),
-  question: text().notNull(),
-  messageId: uuid()
+  question: text("question").notNull(),
+  messageId: uuid("message_id")
     .notNull()
     .references(() => message.id),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-  resolved: boolean().notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  resolved: boolean("resolved").notNull().default(false),
 });
+
+export const ticketEmbeddings = pgTable(
+  "ticket_embeddings",
+  {
+    id: uuid().notNull().defaultRandom().primaryKey(),
+    ticketId: uuid()
+      .notNull()
+      .references(() => ticket.id),
+    embedding: vector("embedding", {
+      dimensions: VECTOR_DB_CONFIG.vectorDimension,
+    }),
+    question: text().notNull(),
+    metadata: json(),
+    createdAt: timestamp().notNull(),
+  },
+  (table) => ({
+    idx: index("ticket_embeddings_vector_idx").using(
+      "hnsw",
+      table.embedding.op("vector_cosine_ops")
+    ),
+  })
+);
+
+export type TicketEmbedding = InferSelectModel<typeof ticketEmbeddings>;
 
 export const userTicket = pgTable("user_ticket", {
   userId: text()
@@ -76,6 +110,17 @@ export const message = pgTable("message", {
   chatId: uuid()
     .notNull()
     .references(() => chat.id),
+  role: varchar().notNull(),
+  content: json().notNull(),
+  createdAt: timestamp().notNull(),
+  tokenCount: integer().default(0),
+});
+
+export const adminMessage = pgTable("admin_message", {
+  id: uuid().primaryKey().notNull().defaultRandom(),
+  chatId: uuid()
+    .notNull()
+    .references(() => adminChat.id),
   role: varchar().notNull(),
   content: json().notNull(),
   createdAt: timestamp().notNull(),
@@ -144,30 +189,6 @@ export const documentEmbeddings = pgTable(
 );
 
 export type DocumentEmbedding = InferSelectModel<typeof documentEmbeddings>;
-
-export const ticketEmbeddings = pgTable(
-  "ticket_embeddings",
-  {
-    id: uuid().notNull().defaultRandom().primaryKey(),
-    ticketId: uuid()
-      .notNull()
-      .references(() => ticket.id),
-    embedding: vector("embedding", {
-      dimensions: VECTOR_DB_CONFIG.vectorDimension,
-    }),
-    question: text().notNull(),
-    metadata: json(),
-    createdAt: timestamp().notNull(),
-  },
-  (table) => ({
-    idx: index("ticket_embeddings_vector_idx").using(
-      "hnsw",
-      table.embedding.op("vector_cosine_ops")
-    ),
-  })
-);
-
-export type TicketEmbedding = InferSelectModel<typeof ticketEmbeddings>;
 
 // New table for tracking token usage for rate limiting
 export const tokenUsage = pgTable("token_usage", {
