@@ -125,8 +125,6 @@ export async function POST(request: Request) {
         model: myProvider.languageModel(selectedChatModel),
         system: isAdmin
           ? // ! 1. engineer the prompt
-            // ! 2. create the tables for question embeddings
-            // ! 3. give agent access to database table (fetch questions)
             // ! 4. ui changes
             adminSystemPrompt
           : systemPrompt({

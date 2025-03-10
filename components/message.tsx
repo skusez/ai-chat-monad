@@ -167,10 +167,9 @@ const PurePreviewMessage = ({
                             result={result}
                             isReadonly={isReadonly}
                           />
-                        ) : toolName === "createBrief" ? (
-                          <>{null}</>
                         ) : (
-                          <pre>{JSON.stringify(result, null, 2)}</pre>
+                          <></>
+                          // <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}
                       </div>
                     );
