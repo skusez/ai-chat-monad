@@ -17,7 +17,7 @@ export const getTickets = ({
 }) =>
   tool({
     description:
-      "search the database for questions (tickets) based on the users prompt",
+      "search the database based on the users prompt. Always include the full row",
     parameters: z.object({
       prompt: z
         .string()
@@ -38,10 +38,8 @@ export const getTickets = ({
         prompt,
       });
 
-      // TODO this should be a structured result containing the ticket schema
-
       const result = await db.execute(query);
-
+      console.log({ result });
       return result;
     },
   });

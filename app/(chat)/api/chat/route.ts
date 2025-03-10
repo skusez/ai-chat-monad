@@ -30,6 +30,7 @@ import { createTicket } from "@/lib/ai/tools/create-ticket";
 import { getInformation } from "@/lib/ai/tools/get-information";
 import { getTickets } from "@/lib/ai/tools/get-tickets";
 import { Chat } from "@/lib/db/schema";
+import { addInformation } from "@/lib/ai/tools/add-information";
 
 export const maxDuration = 60;
 
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
         messages,
         maxSteps: 5,
         experimental_activeTools: isAdmin
-          ? ["getInformation", "getTickets"]
+          ? ["getInformation", "getTickets", "addInformation"]
           : [
               // "getWeather",
               // "createDocument",
@@ -155,6 +156,9 @@ export async function POST(request: Request) {
           getInformation: getInformation({
             session,
             dataStream,
+          }),
+          addInformation: addInformation({
+            session,
           }),
           getTickets: getTickets({
             session,

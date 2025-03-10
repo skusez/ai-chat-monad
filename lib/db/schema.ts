@@ -81,8 +81,8 @@ export const ticketEmbeddings = pgTable(
     embedding: vector("embedding", {
       dimensions: VECTOR_DB_CONFIG.vectorDimension,
     }),
-    question: text().notNull(),
     metadata: json(),
+    content: text().notNull(),
     createdAt: timestamp().notNull(),
   },
   (table) => ({
@@ -94,6 +94,7 @@ export const ticketEmbeddings = pgTable(
 );
 
 export type TicketEmbedding = InferSelectModel<typeof ticketEmbeddings>;
+export type TicketEmbeddingInsert = InferInsertModel<typeof ticketEmbeddings>;
 
 export const userTicket = pgTable("user_ticket", {
   userId: text()

@@ -12,30 +12,25 @@ export const getInformation = ({
 }) =>
   tool({
     description:
-      "get information from your knowledge base to answer the question",
+      "get information from your knowledge base to answer the question. Transform any questions to statements to optimize rag performance.",
     parameters: z.object({
-      question: z.string().describe("the users question"),
+      query: z.string().describe("the users question in statement form."),
     }),
-    execute: async ({ question }) => {
+    execute: async ({ query }) => {
       if (!session.user?.id) {
         throw new Error("User not found");
       }
 
+      console.log({ query });
       const [information] = await ragSearch({
-        query: question,
+        query,
         limit: 4,
       });
 
-      if (information) {
-        dataStream.writeData({
-          type: "information-found",
-          content: information.content,
-        });
+      if (!information) {
+        return "No information was found";
       }
 
-      return {
-        content:
-          "No information found, use the 'createTicket' tool to create a ticket",
-      };
+      return information;
     },
   });

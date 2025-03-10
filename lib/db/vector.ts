@@ -2,9 +2,13 @@ import "server-only";
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { documentEmbeddings, ticketEmbeddings } from "./schema";
+import {
+  documentEmbeddings,
+  TicketEmbeddingInsert,
+  ticketEmbeddings,
+} from "./schema";
 import { VECTOR_DB_CONFIG } from "../config";
-import { sql, cosineDistance, gt, desc } from "drizzle-orm";
+import { sql, cosineDistance, gt, desc, InferInsertModel } from "drizzle-orm";
 import { OpenAI } from "openai";
 
 // biome-ignore lint: Forbidden non-null assertion.
@@ -38,22 +42,23 @@ export async function ragSearch({
   try {
     const embedding = await createEmbedding(query);
     const similarity = sql<number>`1 - (${cosineDistance(
-      documentEmbeddings.embedding,
+      ticketEmbeddings.embedding,
       embedding
     )})`;
 
     const results = await db
       .select({
-        id: documentEmbeddings.id,
-        documentId: documentEmbeddings.documentId,
-        content: documentEmbeddings.content,
-        metadata: documentEmbeddings.metadata,
+        id: ticketEmbeddings.id,
+        ticketId: ticketEmbeddings.ticketId,
+        content: ticketEmbeddings.content,
+        metadata: ticketEmbeddings.metadata,
         similarity,
       })
-      .from(documentEmbeddings)
+      .from(ticketEmbeddings)
       .where(gt(similarity, threshold))
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
+    console.log({ results });
 
     return results;
   } catch (error) {
@@ -90,13 +95,13 @@ export async function saveDocumentEmbedding({
 // Function to process and chunk a document for embedding
 export async function processTicketForEmbedding({
   ticketId,
-  question,
+  content,
 
   chunkSize = 1000,
   chunkOverlap = 200,
 }: {
   ticketId: string;
-  question: string;
+  content: string;
 
   chunkSize?: number;
   chunkOverlap?: number;
@@ -106,13 +111,13 @@ export async function processTicketForEmbedding({
     const chunks: string[] = [];
     let startIndex = 0;
 
-    while (startIndex < question.length) {
-      const endIndex = Math.min(startIndex + chunkSize, question.length);
-      chunks.push(question.slice(startIndex, endIndex));
+    while (startIndex < content.length) {
+      const endIndex = Math.min(startIndex + chunkSize, content.length);
+      chunks.push(content.slice(startIndex, endIndex));
       startIndex = endIndex - chunkOverlap;
 
       // If the remaining text is too small, just include it in the last chunk
-      if (question.length - startIndex < chunkSize / 2) {
+      if (content.length - startIndex < chunkSize / 2) {
         break;
       }
     }
@@ -122,7 +127,7 @@ export async function processTicketForEmbedding({
       const embedding = await createEmbedding(chunk);
       await saveTicketEmbedding({
         ticketId,
-        question: chunk,
+        content: chunk,
         embedding,
         metadata: { chunkSize, chunkOverlap },
       });
@@ -155,7 +160,7 @@ export async function searchSimilarTickets({
       .select({
         id: ticketEmbeddings.id,
         ticketId: ticketEmbeddings.ticketId,
-        question: ticketEmbeddings.question,
+        content: ticketEmbeddings.content,
         metadata: ticketEmbeddings.metadata,
         similarity,
       })
@@ -173,20 +178,15 @@ export async function searchSimilarTickets({
 
 export async function saveTicketEmbedding({
   ticketId,
-  question,
   embedding,
+  content,
   metadata = {},
-}: {
-  ticketId: string;
-  question: string;
-  embedding: number[];
-  metadata?: Record<string, any>;
-}) {
+}: Omit<TicketEmbeddingInsert, "createdAt">) {
   try {
     return await db.insert(ticketEmbeddings).values({
       ticketId,
-      question,
       embedding,
+      content,
       metadata,
       createdAt: new Date(),
     });

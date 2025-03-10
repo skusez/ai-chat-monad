@@ -1,41 +1,34 @@
-import { ragSearch } from "@/lib/db/vector";
-import { DataStreamWriter, tool } from "ai";
+import { processTicketForEmbedding } from "@/lib/db/vector";
+import { tool } from "ai";
 import { Session } from "next-auth";
 import { z } from "zod";
 
-export const addInformation = ({
-  session,
-  dataStream,
-}: {
-  session: Session;
-  dataStream: DataStreamWriter;
-}) =>
+export const addInformation = ({ session }: { session: Session }) =>
   tool({
-    description:
-      "get information from your knowledge base to answer the question",
+    description: "add content to the knowledge base",
     parameters: z.object({
-      question: z.string().describe("the users question"),
+      content: z
+        .string()
+        .describe("the content to be added to the knowledge base"),
+      ticketId: z
+        .string()
+        .describe("the ticket id associated with the question"),
     }),
-    execute: async ({ question }) => {
+    execute: async ({ content, ticketId }) => {
       if (!session.user?.id) {
         throw new Error("User not found");
       }
 
-      const [information] = await ragSearch({
-        query: question,
-        limit: 4,
+      const { success } = await processTicketForEmbedding({
+        ticketId,
+        content,
       });
 
-      if (information) {
-        dataStream.writeData({
-          type: "information-found",
-          content: information.content,
-        });
-      }
+      if (!success) throw "Could not generate embedding";
 
       return {
         content:
-          "No information found, use the 'createTicket' tool to create a ticket",
+          "The content was added to the knowledge base, confirm it works by calling \'getInformation\'",
       };
     },
   });
