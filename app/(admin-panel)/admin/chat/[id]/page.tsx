@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { Chat } from "@/components/chat";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
@@ -13,7 +13,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const chat = await getChatById({ id, isAdmin: true });
 
   if (!chat) {
-    notFound();
+    redirect("/admin");
   }
 
   const messagesFromDb = await getMessagesByChatId({

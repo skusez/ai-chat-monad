@@ -75,12 +75,12 @@ export const ticketEmbeddings = pgTable(
   "ticket_embeddings",
   {
     id: uuid().notNull().defaultRandom().primaryKey(),
-    ticketId: uuid()
-      .notNull()
-      .references(() => ticket.id),
+    // optional ticketId to resolve question
+    ticketId: uuid().references(() => ticket.id),
     embedding: vector("embedding", {
       dimensions: VECTOR_DB_CONFIG.vectorDimension,
     }),
+    source: text(),
     metadata: json(),
     content: text().notNull(),
     createdAt: timestamp().notNull(),

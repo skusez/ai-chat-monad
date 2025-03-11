@@ -38,7 +38,7 @@ export const createTicket = ({
       if (existingTicket) {
         dataStream.writeData({
           type: "ticket-exists",
-          content: existingTicket.question,
+          content: existingTicket.content,
         });
 
         await addUserToTicket({

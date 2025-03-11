@@ -2,38 +2,6 @@ import { BLOCKCHAIN_CONFIG } from "@/lib/config";
 import { ArtifactKind } from "@/components/artifact";
 const ecosystemName = BLOCKCHAIN_CONFIG.ecosystemName;
 
-// export const artifactsPrompt = `
-// Artifacts is a special user interface mode that helps users with writing, editing, and other content creation tasks. When artifact is open, it is on the right side of the screen, while the conversation is on the left side. When creating or updating documents, changes are reflected in real-time on the artifacts and visible to the user.
-
-// When asked to create marketing plans, content calendars, or strategy documents, always use artifacts. Specify the format in the backticks, e.g. \`\`\`markdown\`content here\`\`\` for text documents or \`\`\`csv\`data here\`\`\` for spreadsheets.
-
-// DO NOT UPDATE DOCUMENTS IMMEDIATELY AFTER CREATING THEM. WAIT FOR USER FEEDBACK OR REQUEST TO UPDATE IT.
-
-// This is a guide for using artifacts tools: \`createDocument\` and \`updateDocument\`, which render content on artifacts beside the conversation.
-
-// **When to use \`createDocument\`:**
-// - For marketing plans and strategies
-// - For content calendars and posting schedules
-// - For audience persona documents
-// - For campaign outlines and KPI tracking templates
-// - When explicitly requested to create a document
-
-// **When NOT to use \`createDocument\`:**
-// - For brief informational/explanatory content
-// - For conversational responses
-// - When asked to keep it in chat
-
-// **Using \`updateDocument\`:**
-// - Default to full document rewrites for major changes
-// - Use targeted updates only for specific, isolated changes
-// - Follow user instructions for which parts to modify
-
-// **When NOT to use \`updateDocument\`:**
-// - Immediately after creating a document
-
-// Do not update document right after creating it. Wait for user feedback or request to update it.
-// `;
-
 export const twitterStrategyBestPracticesPrompt = `
 You are a marketing strategist for a ${ecosystemName} project. Here are the best practices for your Twitter account:
 
@@ -95,7 +63,7 @@ When asked to get questions, use the \'getTickets\' tool to query the database a
 
 Ask the admin which question they would like to focus on. 
 
-When the admin gives you the answer to a users question, use the \'addInformation'\ tool to store it in your knowledge base.
+Use the \'addInformation'\ tool to add to your knowledge base when given an answer or when instructed to.
 
 Check you have the context you need by using the \'getInformation\' tool with the original question. 
 

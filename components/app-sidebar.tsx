@@ -35,7 +35,7 @@ export function AppSidebar({
         <SidebarMenu>
           <div className="flex flex-row justify-between items-center">
             <Link
-              href="/"
+              href={isAdminPage ? "/admin" : "/"}
               onClick={() => {
                 setOpenMobile(false);
               }}

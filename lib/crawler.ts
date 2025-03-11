@@ -1,3 +1,5 @@
+const logs = true;
+
 /**
  * Crawler class for interacting with Crawl4AI API
  * @class Crawl4AI
@@ -11,7 +13,7 @@ interface ExtractionConfigSchema {
 
 interface CrawlRequest {
   // Start of Selection
-  urls: string;
+  urls: string[];
   priority: number;
   crawler_params: {
     // Browser Configuration
@@ -46,6 +48,52 @@ interface CrawlRequest {
   };
 }
 
+const deepCrawlerConfig = {
+  crawler_params: {
+    type: "CrawlerRunConfig",
+    params: {
+      deep_crawl_strategy: {
+        type: "BFSDeepCrawlStrategy",
+        params: {
+          max_depth: 3,
+          max_pages: 100,
+          include_external: false,
+        },
+      },
+      scraping_strategy: {
+        type: "LXMLWebScrapingStrategy",
+        params: {},
+      },
+      verbose: true,
+    },
+  },
+};
+
+const defaultConfig = {};
+
+interface TaskResult {
+  status: "pending" | "completed" | "success" | "failed";
+  created_at: number;
+  result: {
+    markdown: string;
+    results?: Array<{
+      // Add deep crawl results array
+      url: string;
+      dispatch_result?: {
+        task_id: string;
+        // ... other dispatch fields
+      };
+    }>;
+  };
+  error?: string;
+}
+
+function log(...params: any[]) {
+  if (logs) {
+    console.log(...params);
+  }
+}
+
 const apiKey = process.env.CRAWL4AI_API_TOKEN;
 const baseUrlFromEnv = process.env.CRAWL4AI_URL!;
 if (!baseUrlFromEnv) {
@@ -64,36 +112,42 @@ export class Crawl4AI {
       "Content-Type": "application/json",
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     };
+
+    log("Initialized crawler with headers: ", this.headers);
   }
 
   /**
    * Performs a basic crawl of the specified URL
    * @param {string} url - The URL to crawl
    * @param {number} priority - Priority of the crawl task (optional)
-   * @returns {Promise<any>} - The crawl result
+   * @returns {Promise<string>} - The taskId
    */
-  async crawl({ urls, priority = 10 }: Partial<CrawlRequest>): Promise<any> {
+  async crawl({ urls, priority = 10 }: Partial<CrawlRequest>): Promise<string> {
     try {
       const request = {
         urls,
         priority,
+        ...deepCrawlerConfig,
       };
 
-      // Submit the crawl task
       const response = await fetch(`${this.baseUrl}/crawl`, {
         method: "POST",
-        headers: {
-          ...this.headers,
-        },
+        headers: { ...this.headers },
         body: JSON.stringify(request),
       });
 
       const data = await response.json();
-      const taskId = data.task_id;
 
-      // Get the results
-      const result = await this.getTaskResult(taskId);
-      return result;
+      console.log(`Crawled ${data.results?.length || 0} pages`);
+
+      console.log(JSON.stringify(data));
+
+      // Handle single URL response format
+      if (data.task_id) {
+        return data.task_id;
+      }
+
+      throw new Error("Invalid response format from API");
     } catch (error) {
       console.error("Crawl failed:", error);
       throw error;
@@ -133,7 +187,7 @@ export class Crawl4AI {
       const data = await response.json();
       const taskId = data.task_id;
 
-      return await this.getTaskResult(taskId);
+      return await this.getTaskResult({ taskId });
     } catch (error) {
       console.error("Structured data extraction failed:", error);
       throw error;
@@ -174,7 +228,7 @@ export class Crawl4AI {
       const data = await response.json();
       const taskId = data.task_id;
 
-      return await this.getTaskResult(taskId);
+      return await this.getTaskResult({ taskId });
     } catch (error) {
       console.error("Dynamic content crawl failed:", error);
       throw error;
@@ -228,7 +282,7 @@ export class Crawl4AI {
       const data = await response.json();
       const taskId = data.task_id;
 
-      return await this.getTaskResult(taskId);
+      return await this.getTaskResult({ taskId });
     } catch (error) {
       console.error("AI extraction failed:", error);
       throw error;
@@ -240,9 +294,28 @@ export class Crawl4AI {
    * @param {string} taskId - The ID of the task
    * @returns {Promise<any>} - The task result
    */
-  private async getTaskResult({ taskId }: { taskId: string }): Promise<any> {
+  async getTaskResult({
+    taskId,
+    format = "markdown", // Keep format for clean text processing
+    include_metadata = true, // Preserve context
+    semantic_filter = "", // Pre-filter irrelevant content
+  }: {
+    taskId: string;
+    format?: "markdown" | "text" | "html";
+    include_metadata?: boolean;
+    semantic_filter?: string;
+  }): Promise<TaskResult> {
     try {
-      const response = await fetch(`${this.baseUrl}/task/${taskId}`);
+      const params = new URLSearchParams({
+        format,
+        include_metadata: String(include_metadata),
+        semantic_filter,
+        fit_markdown: "True",
+      });
+
+      const response = await fetch(`${this.baseUrl}/task/${taskId}?${params}`, {
+        headers: { ...this.headers },
+      });
       const data = await response.json();
       return data;
     } catch (error) {

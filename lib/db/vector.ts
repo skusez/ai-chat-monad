@@ -96,13 +96,13 @@ export async function saveDocumentEmbedding({
 export async function processTicketForEmbedding({
   ticketId,
   content,
-
+  source,
   chunkSize = 1000,
   chunkOverlap = 200,
 }: {
-  ticketId: string;
+  ticketId: string | undefined;
   content: string;
-
+  source: string | undefined;
   chunkSize?: number;
   chunkOverlap?: number;
 }) {
@@ -129,6 +129,7 @@ export async function processTicketForEmbedding({
         ticketId,
         content: chunk,
         embedding,
+        source,
         metadata: { chunkSize, chunkOverlap },
       });
     }
@@ -180,6 +181,7 @@ export async function saveTicketEmbedding({
   ticketId,
   embedding,
   content,
+  source,
   metadata = {},
 }: Omit<TicketEmbeddingInsert, "createdAt">) {
   try {
@@ -187,6 +189,7 @@ export async function saveTicketEmbedding({
       ticketId,
       embedding,
       content,
+      source,
       metadata,
       createdAt: new Date(),
     });
