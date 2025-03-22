@@ -91,7 +91,7 @@ export function generateThemeCSS(config: ThemeConfig): string {
 // Function to apply theme configuration (client-side only)
 export function applyThemeConfig(
   config: ThemeConfig,
-  isDarkMode: boolean = false
+  isDarkMode = false
 ) {
   if (typeof document === "undefined") return; // Skip on server-side
 
@@ -99,7 +99,7 @@ export function applyThemeConfig(
   const colorMode = isDarkMode ? "dark" : "light";
 
   // Apply color variables
-  if (config.colors && config.colors[colorMode]) {
+  if (config.colors?.[colorMode]) {
     Object.entries(config.colors[colorMode] || {}).forEach(([key, value]) => {
       if (value) {
         root.style.setProperty(`--${key}`, value);

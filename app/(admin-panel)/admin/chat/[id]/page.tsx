@@ -1,11 +1,11 @@
-import { cookies } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-import { Chat } from "@/components/chat";
-import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
-import { convertToUIMessages } from "@/lib/utils";
-import { DataStreamHandler } from "@/components/data-stream-handler";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { Chat } from '@/components/chat';
+import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
+import { convertToUIMessages } from '@/lib/utils';
+import { DataStreamHandler } from '@/components/data-stream-handler';
+import { DEFAULT_LANGUAGE_MODEL } from '@/lib/ai/models';
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -13,7 +13,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const chat = await getChatById({ id, isAdmin: true });
 
   if (!chat) {
-    redirect("/admin");
+    redirect('/admin');
   }
 
   const messagesFromDb = await getMessagesByChatId({
@@ -22,30 +22,16 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   });
 
   const cookieStore = await cookies();
-  const chatModelFromCookie = cookieStore.get("chat-model");
-
-  if (!chatModelFromCookie) {
-    return (
-      <>
-        <Chat
-          id={chat.id}
-          initialMessages={convertToUIMessages(messagesFromDb)}
-          selectedChatModel={DEFAULT_CHAT_MODEL}
-          selectedVisibilityType={"private"}
-          isReadonly={false}
-        />
-        <DataStreamHandler id={id} />
-      </>
-    );
-  }
+  const chatModelId =
+    cookieStore.get('chat-model')?.value || DEFAULT_LANGUAGE_MODEL;
 
   return (
     <>
       <Chat
         id={chat.id}
         initialMessages={convertToUIMessages(messagesFromDb)}
-        selectedChatModel={chatModelFromCookie.value}
-        selectedVisibilityType={"private"}
+        selectedChatModel={chatModelId}
+        selectedVisibilityType={'private'}
         isReadonly={false}
       />
       <DataStreamHandler id={id} />

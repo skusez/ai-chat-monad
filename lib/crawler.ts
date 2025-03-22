@@ -18,7 +18,7 @@ interface CrawlRequest {
   crawler_params: {
     // Browser Configuration
     headless: boolean; // Run in headless mode
-    browser_type: "chromium" | "firefox" | "webkit"; // Browser type
+    browser_type: 'chromium' | 'firefox' | 'webkit'; // Browser type
     user_agent: string; // Custom user agent
     proxy: string; // Proxy configuration
 
@@ -37,7 +37,7 @@ interface CrawlRequest {
     use_managed_browser: boolean; // Use persistent browser
   };
   extraction_config: {
-    type: "json_css";
+    type: 'json_css';
     params: {
       schema: ExtractionConfigSchema;
       semantic_filter: string;
@@ -50,10 +50,10 @@ interface CrawlRequest {
 
 const deepCrawlerConfig = {
   crawler_params: {
-    type: "CrawlerRunConfig",
+    type: 'CrawlerRunConfig',
     params: {
       deep_crawl_strategy: {
-        type: "BFSDeepCrawlStrategy",
+        type: 'BFSDeepCrawlStrategy',
         params: {
           max_depth: 3,
           max_pages: 100,
@@ -61,7 +61,7 @@ const deepCrawlerConfig = {
         },
       },
       scraping_strategy: {
-        type: "LXMLWebScrapingStrategy",
+        type: 'LXMLWebScrapingStrategy',
         params: {},
       },
       verbose: true,
@@ -72,7 +72,7 @@ const deepCrawlerConfig = {
 const defaultConfig = {};
 
 interface TaskResult {
-  status: "pending" | "completed" | "success" | "failed";
+  status: 'pending' | 'completed' | 'success' | 'failed';
   created_at: number;
   result: {
     markdown: string;
@@ -95,9 +95,9 @@ function log(...params: any[]) {
 }
 
 const apiKey = process.env.CRAWL4AI_API_TOKEN;
-const baseUrlFromEnv = process.env.CRAWL4AI_URL!;
+const baseUrlFromEnv = `${process.env.CRAWL4AI_URL}`;
 if (!baseUrlFromEnv) {
-  throw new Error("Crawler base URL is not set");
+  throw new Error('Crawler base URL is not set');
 }
 export class Crawl4AI {
   private baseUrl: string;
@@ -109,11 +109,11 @@ export class Crawl4AI {
   constructor(_baseUrl: string = baseUrlFromEnv) {
     this.baseUrl = _baseUrl;
     this.headers = {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     };
 
-    log("Initialized crawler with headers: ", this.headers);
+    log('Initialized crawler with headers: ', this.headers);
   }
 
   /**
@@ -131,7 +131,7 @@ export class Crawl4AI {
       };
 
       const response = await fetch(`${this.baseUrl}/crawl`, {
-        method: "POST",
+        method: 'POST',
         headers: { ...this.headers },
         body: JSON.stringify(request),
       });
@@ -147,9 +147,9 @@ export class Crawl4AI {
         return data.task_id;
       }
 
-      throw new Error("Invalid response format from API");
+      throw new Error('Invalid response format from API');
     } catch (error) {
-      console.error("Crawl failed:", error);
+      console.error('Crawl failed:', error);
       throw error;
     }
   }
@@ -171,13 +171,13 @@ export class Crawl4AI {
       const request = {
         urls: url,
         extraction_config: {
-          type: "json_css",
+          type: 'json_css',
           params: { schema },
         },
       };
 
       const response = await fetch(`${this.baseUrl}/crawl`, {
-        method: "POST",
+        method: 'POST',
         headers: {
           ...this.headers,
         },
@@ -189,7 +189,7 @@ export class Crawl4AI {
 
       return await this.getTaskResult({ taskId });
     } catch (error) {
-      console.error("Structured data extraction failed:", error);
+      console.error('Structured data extraction failed:', error);
       throw error;
     }
   }
@@ -218,7 +218,7 @@ export class Crawl4AI {
       };
 
       const response = await fetch(`${this.baseUrl}/crawl`, {
-        method: "POST",
+        method: 'POST',
         headers: {
           ...this.headers,
         },
@@ -230,7 +230,7 @@ export class Crawl4AI {
 
       return await this.getTaskResult({ taskId });
     } catch (error) {
-      console.error("Dynamic content crawl failed:", error);
+      console.error('Dynamic content crawl failed:', error);
       throw error;
     }
   }
@@ -261,7 +261,7 @@ export class Crawl4AI {
       const request = {
         urls: url,
         extraction_config: {
-          type: "cosine",
+          type: 'cosine',
           params: {
             semantic_filter: semanticFilter,
             word_count_threshold: wordCountThreshold,
@@ -272,7 +272,7 @@ export class Crawl4AI {
       };
 
       const response = await fetch(`${this.baseUrl}/crawl`, {
-        method: "POST",
+        method: 'POST',
         headers: {
           ...this.headers,
         },
@@ -284,7 +284,7 @@ export class Crawl4AI {
 
       return await this.getTaskResult({ taskId });
     } catch (error) {
-      console.error("AI extraction failed:", error);
+      console.error('AI extraction failed:', error);
       throw error;
     }
   }
@@ -296,12 +296,12 @@ export class Crawl4AI {
    */
   async getTaskResult({
     taskId,
-    format = "markdown", // Keep format for clean text processing
+    format = 'markdown', // Keep format for clean text processing
     include_metadata = true, // Preserve context
-    semantic_filter = "", // Pre-filter irrelevant content
+    semantic_filter = '', // Pre-filter irrelevant content
   }: {
     taskId: string;
-    format?: "markdown" | "text" | "html";
+    format?: 'markdown' | 'text' | 'html';
     include_metadata?: boolean;
     semantic_filter?: string;
   }): Promise<TaskResult> {
@@ -310,7 +310,7 @@ export class Crawl4AI {
         format,
         include_metadata: String(include_metadata),
         semantic_filter,
-        fit_markdown: "True",
+        fit_markdown: 'True',
       });
 
       const response = await fetch(`${this.baseUrl}/task/${taskId}?${params}`, {
@@ -319,7 +319,7 @@ export class Crawl4AI {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error("Failed to get task result:", error);
+      console.error('Failed to get task result:', error);
       throw error;
     }
   }

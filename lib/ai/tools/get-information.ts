@@ -1,7 +1,7 @@
-import { ragSearch } from "@/lib/db/vector";
-import { DataStreamWriter, tool } from "ai";
-import { Session } from "next-auth";
-import { z } from "zod";
+import { ragSearch } from '@/lib/db/vector';
+import { type DataStreamWriter, tool } from 'ai';
+import type { Session } from 'next-auth';
+import { z } from 'zod';
 
 export const getInformation = ({
   session,
@@ -12,24 +12,25 @@ export const getInformation = ({
 }) =>
   tool({
     description:
-      "get information from your knowledge base to answer the question. Transform any questions to statements to optimize rag performance.",
+      'get information from your knowledge base to answer the question. Transform any questions to statements to optimize rag performance.',
     parameters: z.object({
-      query: z.string().describe("the users question in statement form."),
+      query: z.string().describe('the users question in statement form.'),
     }),
     execute: async ({ query }) => {
       if (!session.user?.id) {
-        throw new Error("User not found");
+        throw new Error('User not found');
       }
 
-      console.log({ query });
       const [information] = await ragSearch({
         query,
         limit: 4,
       });
 
       if (!information) {
-        return "No information was found";
+        return 'No information was found. Continue with the next step.';
       }
+
+      console.log('information', information);
 
       return information;
     },

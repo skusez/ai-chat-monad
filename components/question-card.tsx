@@ -1,7 +1,7 @@
 "use client";
 import { RefreshCcw, Reply, X } from "lucide-react";
 
-import { Question } from "@/lib/db/queries";
+import type { Question } from "@/lib/db/queries";
 import { Card, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import Link from "next/link";
@@ -33,7 +33,7 @@ export function QuestionCard({ question }: { question: Question }) {
         <CardFooter className="px-4 pb-2 gap-2 justify-between">
           <p className="text-sm text-muted-foreground">
             asked {question.userTicketCount}{" "}
-            {question.userTicketCount == 1 ? "time" : "times"}
+            {question.userTicketCount === 1 ? "time" : "times"}
           </p>
           <div className="flex items-center">
             <Button

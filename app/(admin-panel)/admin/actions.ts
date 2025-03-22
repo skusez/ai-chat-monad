@@ -1,7 +1,7 @@
 "use server";
 
 import { updateBriefStatus as updateBriefStatusDb } from "@/lib/db/queries";
-import { briefStatus } from "@/lib/db/schema";
+import type { briefStatus } from "@/lib/db/schema";
 import { revalidatePath } from "next/cache";
 
 export async function updateBriefStatus(

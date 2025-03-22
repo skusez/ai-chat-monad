@@ -3,34 +3,35 @@ import {
   createDataStreamResponse,
   smoothStream,
   streamText,
-} from "ai";
+} from 'ai';
 
-import { auth } from "@/app/(auth)/auth";
-import { myProvider } from "@/lib/ai/models";
-import { adminSystemPrompt, systemPrompt } from "@/lib/ai/prompts";
+import { auth } from '@/app/(auth)/auth';
+import { aiProvider } from '@/lib/ai/models';
+import { adminSystemPrompt, systemPrompt } from '@/lib/ai/prompts';
 import {
   deleteChatById,
   getChatById,
   saveChat,
   saveMessages,
   getUser,
-} from "@/lib/db/queries";
+} from '@/lib/db/queries';
 import {
   generateUUID,
   getMostRecentUserMessage,
   sanitizeResponseMessages,
-} from "@/lib/utils";
+} from '@/lib/utils';
 
-import { generateTitleFromUserMessage } from "../../actions";
+import { generateTitleFromUserMessage } from '../../actions';
 
-import { rateLimitRequest, trackTokenUsage } from "@/lib/redis";
-import { CHAT_MODELS_CONFIG } from "@/lib/config";
+import { rateLimitRequest, trackTokenUsage } from '@/lib/redis';
+import { CHAT_MODELS_CONFIG } from '@/lib/config';
 
-import { createTicket } from "@/lib/ai/tools/create-ticket";
-import { getInformation } from "@/lib/ai/tools/get-information";
-import { getTickets } from "@/lib/ai/tools/get-tickets";
-import { Chat } from "@/lib/db/schema";
-import { addInformation } from "@/lib/ai/tools/add-information";
+import { createTicket } from '@/lib/ai/tools/create-ticket';
+import { getInformation } from '@/lib/ai/tools/get-information';
+import { getTickets } from '@/lib/ai/tools/get-tickets';
+import type { Chat } from '@/lib/db/schema';
+import { addInformation } from '@/lib/ai/tools/add-information';
+import { deleteTickets } from '@/lib/ai/tools/delete-tickets';
 
 export const maxDuration = 60;
 
@@ -50,19 +51,19 @@ export async function POST(request: Request) {
   const session = await auth();
 
   if (!session || !session.user || !session.user.id) {
-    return new Response("Unauthorized", { status: 401 });
+    return new Response('Unauthorized', { status: 401 });
   }
 
   if (isAdmin) {
     if (session.user.isAdmin !== true) {
-      return new Response("Unauthorized", { status: 401 });
+      return new Response('Unauthorized', { status: 401 });
     }
   }
 
   const userMessage = getMostRecentUserMessage(messages);
 
   if (!userMessage) {
-    return new Response("No user message found", { status: 400 });
+    return new Response('No user message found', { status: 400 });
   }
 
   // Estimate token count for the request
@@ -73,8 +74,8 @@ export async function POST(request: Request) {
     ] || 1;
   if (!isAdmin) {
     // Get user information including tier
-    const userInfo = await getUser(session.user.email || "");
-    const userTier = userInfo.length > 0 ? userInfo[0].tier : "free";
+    const userInfo = await getUser(session.user.email || '');
+    const userTier = userInfo.length > 0 ? userInfo[0].tier : 'free';
 
     // Check rate limiting
     const rateLimitResult = await rateLimitRequest({
@@ -91,8 +92,8 @@ export async function POST(request: Request) {
         }),
         {
           status: 429,
-          headers: { "Content-Type": "application/json" },
-        }
+          headers: { 'Content-Type': 'application/json' },
+        },
       );
     }
   }
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
         createdAt: new Date(),
         chatId: id,
         tokenCount: 0,
-        role: "user",
+        role: 'user',
       },
     ],
   });
@@ -122,27 +123,18 @@ export async function POST(request: Request) {
   return createDataStreamResponse({
     execute: (dataStream) => {
       const result = streamText({
-        model: myProvider.languageModel(selectedChatModel),
+        model: aiProvider.languageModel(selectedChatModel),
         system: isAdmin
-          ? // ! 1. engineer the prompt
-            // ! 4. ui changes
-            adminSystemPrompt
+          ? adminSystemPrompt
           : systemPrompt({
               selectedChatModel,
             }),
         messages,
         maxSteps: 5,
         experimental_activeTools: isAdmin
-          ? ["getInformation", "getTickets", "addInformation"]
-          : [
-              // "getWeather",
-              // "createDocument",
-              // "updateDocument",
-              // "requestSuggestions",
-              "getInformation",
-              "createTicket",
-            ],
-        experimental_transform: smoothStream({ chunking: "word" }),
+          ? ['getInformation', 'getTickets', 'addInformation', 'deleteTickets']
+          : ['getInformation', 'createTicket'],
+        experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
         tools: {
           createTicket: createTicket({
@@ -159,6 +151,10 @@ export async function POST(request: Request) {
             session,
           }),
           getTickets: getTickets({
+            session,
+            dataStream,
+          }),
+          deleteTickets: deleteTickets({
             session,
             dataStream,
           }),
@@ -196,14 +192,14 @@ export async function POST(request: Request) {
                 }),
               });
             } catch (error) {
-              console.error("Failed to save chat", error);
+              console.error('Failed to save chat', error);
             }
           }
         },
 
         experimental_telemetry: {
           isEnabled: true,
-          functionId: "stream-text",
+          functionId: 'stream-text',
         },
       });
 
@@ -211,41 +207,42 @@ export async function POST(request: Request) {
 
       result.mergeIntoDataStream(dataStream, {
         sendReasoning: true,
+        sendSources: true,
       });
     },
     onError: (e) => {
-      console.error("Failed to stream text", e);
-      return "Oops, an error occured!";
+      console.error('Failed to stream text', e);
+      return 'Oops, an error occured!';
     },
   });
 }
 
 export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
-  const id = searchParams.get("id");
+  const id = searchParams.get('id');
 
   if (!id) {
-    return new Response("Not Found", { status: 404 });
+    return new Response('Not Found', { status: 404 });
   }
 
   const session = await auth();
 
   if (!session || !session.user) {
-    return new Response("Unauthorized", { status: 401 });
+    return new Response('Unauthorized', { status: 401 });
   }
 
   try {
     const chat = (await getChatById({ id, isAdmin: false })) as Chat;
 
     if (chat.userId !== session.user.id) {
-      return new Response("Unauthorized", { status: 401 });
+      return new Response('Unauthorized', { status: 401 });
     }
 
     await deleteChatById({ id, isAdmin: false });
 
-    return new Response("Chat deleted", { status: 200 });
+    return new Response('Chat deleted', { status: 200 });
   } catch (error) {
-    return new Response("An error occurred while processing your request", {
+    return new Response('An error occurred while processing your request', {
       status: 500,
     });
   }

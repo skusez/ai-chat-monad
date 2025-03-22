@@ -27,7 +27,7 @@ export async function trackTokenUsage({
     }
 
     // Update existing usage record
-    const newUsage = parseInt(currentUsage) + tokenCount;
+    const newUsage = Number.parseInt(currentUsage) + tokenCount;
     await redis.set(key, newUsage);
 
     return { success: true, currentUsage: newUsage };
@@ -58,7 +58,7 @@ export async function checkTokenLimit({
         ? TOKEN_LIMITS.premiumDailyLimit
         : TOKEN_LIMITS.defaultDailyLimit;
 
-    const usage = parseInt(currentUsage);
+    const usage = Number.parseInt(currentUsage);
 
     return {
       hasExceededLimit: usage >= limit,
@@ -169,7 +169,7 @@ export async function creditTokens({
     }
 
     // Calculate new usage (subtracting credits, min value is 0)
-    const usage = parseInt(currentUsage);
+    const usage = Number.parseInt(currentUsage);
     const newUsage = Math.max(0, usage - amount);
 
     // Update the usage

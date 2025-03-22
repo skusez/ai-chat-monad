@@ -1,5 +1,4 @@
-import NextAuth, { DefaultSession, Session, type User } from "next-auth";
-import Google from "next-auth/providers/google";
+import NextAuth from "next-auth";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { authConfig } from "./auth.config";
 import postgres from "postgres";

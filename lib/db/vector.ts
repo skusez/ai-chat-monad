@@ -1,15 +1,16 @@
-import "server-only";
-
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import {
   documentEmbeddings,
-  TicketEmbeddingInsert,
-  ticketEmbeddings,
-} from "./schema";
-import { VECTOR_DB_CONFIG } from "../config";
-import { sql, cosineDistance, gt, desc, InferInsertModel } from "drizzle-orm";
-import { OpenAI } from "openai";
+  ticketAnswerEmbeddings,
+  type TicketQuestionEmbeddingInsert,
+  ticketQuestionEmbeddings,
+  type TicketAnswerEmbeddingInsert,
+} from './schema';
+import { VECTOR_DB_CONFIG } from '../config';
+import { sql, cosineDistance, gt, desc } from 'drizzle-orm';
+import { aiProvider, DEFAULT_TEXT_EMBEDDING_MODEL } from '../ai/models';
+import { embed } from 'ai';
 
 // biome-ignore lint: Forbidden non-null assertion.
 const client = postgres(process.env.DATABASE_URL!);
@@ -17,17 +18,12 @@ const db = drizzle(client);
 
 // Function to create embeddings using OpenAI
 export async function createEmbedding(text: string) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+  const response = await embed({
+    model: aiProvider.textEmbeddingModel(DEFAULT_TEXT_EMBEDDING_MODEL),
+    value: text,
   });
 
-  const response = await openai.embeddings.create({
-    input: text,
-    dimensions: VECTOR_DB_CONFIG.vectorDimension,
-    model: "text-embedding-3-small",
-  });
-
-  return response.data[0].embedding;
+  return response.embedding;
 }
 
 export async function ragSearch({
@@ -42,19 +38,19 @@ export async function ragSearch({
   try {
     const embedding = await createEmbedding(query);
     const similarity = sql<number>`1 - (${cosineDistance(
-      ticketEmbeddings.embedding,
-      embedding
+      ticketAnswerEmbeddings.embedding,
+      embedding,
     )})`;
 
     const results = await db
       .select({
-        id: ticketEmbeddings.id,
-        ticketId: ticketEmbeddings.ticketId,
-        content: ticketEmbeddings.content,
-        metadata: ticketEmbeddings.metadata,
+        id: ticketAnswerEmbeddings.id,
+        ticketId: ticketAnswerEmbeddings.ticketId,
+        content: ticketAnswerEmbeddings.content,
+        metadata: ticketAnswerEmbeddings.metadata,
         similarity,
       })
-      .from(ticketEmbeddings)
+      .from(ticketAnswerEmbeddings)
       .where(gt(similarity, threshold))
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
@@ -62,7 +58,7 @@ export async function ragSearch({
 
     return results;
   } catch (error) {
-    console.error("Failed to search documents", error);
+    console.error('Failed to search documents', error);
     throw error;
   }
 }
@@ -87,13 +83,13 @@ export async function saveDocumentEmbedding({
       createdAt: new Date(),
     });
   } catch (error) {
-    console.error("Failed to save document embedding", error);
+    console.error('Failed to save document embedding', error);
     throw error;
   }
 }
 
 // Function to process and chunk a document for embedding
-export async function processTicketForEmbedding({
+export async function processTicketAnswerForEmbedding({
   ticketId,
   content,
   source,
@@ -125,7 +121,7 @@ export async function processTicketForEmbedding({
     // Create embeddings for each chunk and save them
     for (const chunk of chunks) {
       const embedding = await createEmbedding(chunk);
-      await saveTicketEmbedding({
+      await saveTicketAnswerEmbedding({
         ticketId,
         content: chunk,
         embedding,
@@ -136,12 +132,57 @@ export async function processTicketForEmbedding({
 
     return { success: true, chunksProcessed: chunks.length };
   } catch (error) {
-    console.error("Failed to process ticket for embedding", error);
+    console.error('Failed to process ticket for embedding', error);
+    throw error;
+  }
+}
+export async function processTicketQuestionForEmbedding({
+  ticketId,
+  content,
+  chunkSize = 1000,
+  chunkOverlap = 200,
+}: {
+  ticketId: string | undefined;
+  content: string;
+  chunkSize?: number;
+  chunkOverlap?: number;
+}) {
+  console.log('Processing ticket question for embedding', ticketId);
+  try {
+    // Simple text chunking strategy
+    const chunks: string[] = [];
+    let startIndex = 0;
+
+    while (startIndex < content.length) {
+      const endIndex = Math.min(startIndex + chunkSize, content.length);
+      chunks.push(content.slice(startIndex, endIndex));
+      startIndex = endIndex - chunkOverlap;
+
+      // If the remaining text is too small, just include it in the last chunk
+      if (content.length - startIndex < chunkSize / 2) {
+        break;
+      }
+    }
+
+    // Create embeddings for each chunk and save them
+    for (const chunk of chunks) {
+      const embedding = await createEmbedding(chunk);
+      await saveTicketQuestionEmbedding({
+        ticketId,
+        content: chunk,
+        embedding,
+        metadata: { chunkSize, chunkOverlap },
+      });
+    }
+
+    return { success: true, chunksProcessed: chunks.length };
+  } catch (error) {
+    console.error('Failed to process ticket for embedding', error);
     throw error;
   }
 }
 
-export async function searchSimilarTickets({
+export async function searchSimilarTicketQuestions({
   query,
   limit = VECTOR_DB_CONFIG.maxResults,
   threshold = VECTOR_DB_CONFIG.similarityThreshold,
@@ -153,39 +194,39 @@ export async function searchSimilarTickets({
   try {
     const embedding = await createEmbedding(query);
     const similarity = sql<number>`1 - (${cosineDistance(
-      ticketEmbeddings.embedding,
-      embedding
+      ticketQuestionEmbeddings.embedding,
+      embedding,
     )})`;
 
     const results = await db
       .select({
-        id: ticketEmbeddings.id,
-        ticketId: ticketEmbeddings.ticketId,
-        content: ticketEmbeddings.content,
-        metadata: ticketEmbeddings.metadata,
+        id: ticketQuestionEmbeddings.id,
+        ticketId: ticketQuestionEmbeddings.ticketId,
+        content: ticketQuestionEmbeddings.content,
+        metadata: ticketQuestionEmbeddings.metadata,
         similarity,
       })
-      .from(ticketEmbeddings)
+      .from(ticketQuestionEmbeddings)
       .where(gt(similarity, threshold))
       .orderBy((t) => desc(t.similarity))
       .limit(limit);
 
     return results;
   } catch (error) {
-    console.error("Failed to search similar tickets", error);
+    console.error('Failed to search similar tickets', error);
     throw error;
   }
 }
 
-export async function saveTicketEmbedding({
+export async function saveTicketAnswerEmbedding({
   ticketId,
   embedding,
   content,
   source,
   metadata = {},
-}: Omit<TicketEmbeddingInsert, "createdAt">) {
+}: Omit<TicketAnswerEmbeddingInsert, 'createdAt'>) {
   try {
-    return await db.insert(ticketEmbeddings).values({
+    return await db.insert(ticketAnswerEmbeddings).values({
       ticketId,
       embedding,
       content,
@@ -194,7 +235,27 @@ export async function saveTicketEmbedding({
       createdAt: new Date(),
     });
   } catch (error) {
-    console.error("Failed to save ticket embedding", error);
+    console.error('Failed to save ticket embedding', error);
+    throw error;
+  }
+}
+
+export async function saveTicketQuestionEmbedding({
+  ticketId,
+  embedding,
+  content,
+  metadata = {},
+}: Omit<TicketQuestionEmbeddingInsert, 'createdAt'>) {
+  try {
+    return await db.insert(ticketQuestionEmbeddings).values({
+      ticketId,
+      embedding,
+      content,
+      metadata,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error('Failed to save ticket question embedding', error);
     throw error;
   }
 }
