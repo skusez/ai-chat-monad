@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import type { Attachment, Message } from "ai";
-import { useChat } from "@ai-sdk/react";
-import { useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
+import type { Attachment } from 'ai';
+import { useChat, type UseChatHelpers } from '@ai-sdk/react';
+import { useState } from 'react';
+import useSWR, { useSWRConfig } from 'swr';
 
-import { ChatHeader } from "@/components/chat-header";
-import type { Vote } from "@/lib/db/schema";
-import { fetcher, generateUUID } from "@/lib/utils";
+import { ChatHeader } from '@/components/chat-header';
+import type { Vote } from '@/lib/db/schema';
+import { fetcher, generateUUID } from '@/lib/utils';
 
-import { Artifact } from "./artifact";
-import { MultimodalInput } from "./multimodal-input";
-import { Messages } from "./messages";
-import type { VisibilityType } from "./visibility-selector";
-import { useArtifactSelector } from "@/hooks/use-artifact";
-import { toast } from "sonner";
+import { Artifact } from './artifact';
+import { MultimodalInput } from './multimodal-input';
+import { Messages } from './messages';
+import type { VisibilityType } from './visibility-selector';
+import { useArtifactSelector } from '@/hooks/use-artifact';
+import { toast } from 'sonner';
 
 export function Chat({
   id,
@@ -25,7 +25,7 @@ export function Chat({
   isAdmin = false,
 }: {
   id: string;
-  initialMessages: Array<Message>;
+  initialMessages: UseChatHelpers['messages'];
   selectedChatModel: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
@@ -52,20 +52,23 @@ export function Chat({
     },
     initialMessages,
     experimental_throttle: 100,
+    onToolCall: (toolCall) => {
+      console.log({ toolCall });
+    },
     sendExtraMessageFields: true,
     generateId: generateUUID,
     onFinish: () => {
-      !isAdmin && mutate("/api/history");
+      !isAdmin && mutate(`/api/history?isAdminPage=${isAdmin}`);
     },
     onError: (error) => {
       console.error(error);
-      toast.error("An error occured, please try again!");
+      toast.error('An error occured, please try again!');
     },
   });
 
   const { data: votes } = useSWR<Array<Vote>>(
     `/api/vote?chatId=${id}`,
-    fetcher
+    fetcher,
   );
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
@@ -88,6 +91,7 @@ export function Chat({
           chatId={id}
           isLoading={isLoading}
           votes={votes}
+          append={append}
           messages={messages}
           setMessages={setMessages}
           reload={reload}

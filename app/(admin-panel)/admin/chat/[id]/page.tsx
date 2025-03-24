@@ -6,6 +6,7 @@ import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { convertToUIMessages } from '@/lib/utils';
 import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DEFAULT_LANGUAGE_MODEL } from '@/lib/ai/models';
+import type { UseChatHelpers } from '@ai-sdk/react';
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -29,7 +30,9 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     <>
       <Chat
         id={chat.id}
-        initialMessages={convertToUIMessages(messagesFromDb)}
+        initialMessages={
+          convertToUIMessages(messagesFromDb) as UseChatHelpers['messages']
+        }
         selectedChatModel={chatModelId}
         selectedVisibilityType={'private'}
         isReadonly={false}

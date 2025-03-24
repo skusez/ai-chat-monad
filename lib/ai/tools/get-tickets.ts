@@ -38,8 +38,8 @@ export const getTickets = ({
         prompt,
       });
 
-      const result = await db.execute(query);
-      console.log({ result });
-      return result;
+      const tickets = await db.execute(query);
+
+      return { tickets };
     },
   });

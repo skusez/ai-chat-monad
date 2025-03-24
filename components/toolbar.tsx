@@ -1,6 +1,5 @@
 'use client';
 
-import type { ChatRequestOptions, CreateMessage, Message } from 'ai';
 import cx from 'classnames';
 import {
   AnimatePresence,
@@ -27,14 +26,11 @@ import {
 } from '@/components/ui/tooltip';
 import { sanitizeUIMessages } from '@/lib/utils';
 
-import {
-  ArrowUpIcon,
-  StopIcon,
-  SummarizeIcon,
-} from './icons';
+import { ArrowUpIcon, StopIcon, SummarizeIcon } from './icons';
 import { artifactDefinitions, type ArtifactKind } from './artifact';
 import type { ArtifactToolbarItem } from './create-artifact';
-import type { UseChatHelpers } from 'ai/react';
+import type { UseChatHelpers, CreateMessage, Message } from '@ai-sdk/react';
+import type { ChatRequestOptions } from 'ai';
 
 type ToolProps = {
   description: string;
@@ -262,10 +258,7 @@ export const Tools = ({
   isToolbarVisible: boolean;
   selectedTool: string | null;
   setSelectedTool: Dispatch<SetStateAction<string | null>>;
-  append: (
-    message: Message | CreateMessage,
-    chatRequestOptions?: ChatRequestOptions,
-  ) => Promise<string | null | undefined>;
+  append: UseChatHelpers['append'];
   isAnimating: boolean;
   setIsToolbarVisible: Dispatch<SetStateAction<boolean>>;
   tools: Array<ArtifactToolbarItem>;
@@ -322,12 +315,9 @@ const PureToolbar = ({
   isToolbarVisible: boolean;
   setIsToolbarVisible: Dispatch<SetStateAction<boolean>>;
   isLoading: boolean;
-  append: (
-    message: Message | CreateMessage,
-    chatRequestOptions?: ChatRequestOptions,
-  ) => Promise<string | null | undefined>;
-  stop: () => void;
-  setMessages: Dispatch<SetStateAction<Message[]>>;
+  append: UseChatHelpers['append'];
+  stop: UseChatHelpers['stop'];
+  setMessages: UseChatHelpers['setMessages'];
   artifactKind: ArtifactKind;
 }) => {
   const toolbarRef = useRef<HTMLDivElement>(null);

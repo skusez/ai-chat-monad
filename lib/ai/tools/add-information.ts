@@ -1,13 +1,16 @@
-import { Crawl4AI } from '@/lib/crawler';
+import { crawler } from '@/lib/crawler';
 import { processTicketAnswerForEmbedding } from '@/lib/db/vector';
-import { tool } from 'ai';
+import { type DataStreamWriter, tool } from 'ai';
 import type { Session } from 'next-auth';
 import { z } from 'zod';
 
-export const addInformation = ({ session }: { session: Session }) =>
+export const addInformation = ({
+  session,
+  dataStream,
+}: { session: Session; dataStream: DataStreamWriter }) =>
   tool({
     description:
-      "The admin provided text context or a URL pointing to the content that we need to scrape. If there is a URL then don't populate the 'content' parameter.",
+      'If the user provided a URL, fill in the "url" parameter. If the user provided a text context, fill in the "content" parameter.',
     parameters: z.object({
       content: z
         .string()
@@ -25,66 +28,85 @@ export const addInformation = ({ session }: { session: Session }) =>
     }),
     execute: async ({ content, ticketId, url }) => {
       if (!session.user?.id) {
-        throw new Error('User not found');
+        throw 'User not found';
       }
 
       console.log({ url });
 
       let contentToAdd = content;
-
+      let success = false;
       if (url) {
+        dataStream.writeData({
+          type: 'crawl-started',
+          content: '',
+          toolCallId: 'add-information',
+        });
         // crawl the url for content
-        const crawler = new Crawl4AI();
-        const taskId = await crawler.crawl({ urls: [url] });
+        const crawlResponse = await crawler.crawlUrl(url, {
+          limit: 100,
+          scrapeOptions: {
+            formats: ['markdown'],
+            onlyMainContent: true,
+          },
+        });
 
-        let attempts = 0;
-        let status = 'pending'; // Initial status
-        const maxAttempts = 10;
+        if (!crawlResponse.success) {
+          throw 'Crawl failed';
+        }
 
-        while (status !== 'completed' && attempts < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms delay
-          try {
-            const result = await crawler.getTaskResult({
-              taskId,
-              format: 'markdown',
-            });
+        dataStream.writeData({
+          type: 'crawl-finished',
+          content: `Crawled ${crawlResponse.data.length} urls`,
+        });
 
-            status = result.status;
+        contentToAdd = crawlResponse.data
+          .map((data) => data.markdown)
+          .join('\n');
 
-            if (result.result?.markdown) {
-              contentToAdd = result.result.markdown;
-              console.log(
-                'Crawled content:',
-                `${contentToAdd.substring(0, 100)}...`,
-              );
+        if (!contentToAdd) {
+          throw 'Could not get any content to add';
+        }
+
+        console.log(`Processing ${crawlResponse.data.length} urls`);
+
+        const results = await Promise.allSettled(
+          crawlResponse.data.map(async (data) => {
+            console.log(
+              `Processing ${data.metadata?.sourceURL}, has markdown: ${!!data.markdown}`,
+            );
+            if (data.markdown) {
+              const { success: successEmbedding } =
+                await processTicketAnswerForEmbedding({
+                  ticketId,
+                  content: data.markdown ?? '',
+                  source: data.metadata?.sourceURL,
+                });
+
+              return successEmbedding;
             }
-          } catch (error) {
-            console.error('Error fetching task result:', error);
-          }
+          }),
+        );
 
-          attempts++;
+        // let success be true if at least one embedding was created
+        success = results.some((result) => result.status === 'fulfilled');
+      } else {
+        if (!contentToAdd) {
+          throw 'Could not get any content to add';
         }
+        const { success: successEmbedding } =
+          await processTicketAnswerForEmbedding({
+            ticketId,
+            content: contentToAdd,
+            source: url,
+          });
 
-        if (status !== 'completed' || !contentToAdd) {
-          throw new Error('Failed to crawl the URL or extract content');
-        }
+        success = successEmbedding;
       }
-
-      if (!contentToAdd) {
-        throw 'Could not get any content to add';
-      }
-      // handle content case
-      const { success } = await processTicketAnswerForEmbedding({
-        ticketId,
-        content: contentToAdd,
-        source: url,
-      });
 
       if (!success) throw 'Could not generate embedding';
 
       return {
-        content:
-          "The content was added to the knowledge base, confirm it works by calling 'getInformation'",
+        content: 'The content was added to the knowledge base.',
       };
     },
   });

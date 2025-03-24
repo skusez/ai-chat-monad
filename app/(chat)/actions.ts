@@ -1,6 +1,7 @@
 'use server';
 
-import { generateText, type Message } from 'ai';
+import { generateText } from 'ai';
+import type { Message } from '@ai-sdk/react';
 import { cookies } from 'next/headers';
 
 import {

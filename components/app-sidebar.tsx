@@ -83,7 +83,7 @@ export function AppSidebar({
                     router.push("/");
                   }}
                 >
-                  <SettingsIcon className="mr-2 h-4 w-4" />
+                  <SettingsIcon className="mr-2 size-4" />
                   User Dashboard
                 </Button>
               </div>
@@ -99,7 +99,7 @@ export function AppSidebar({
                         router.push("/admin");
                       }}
                     >
-                      <SettingsIcon className="mr-2 h-4 w-4" />
+                      <SettingsIcon className="mr-2 size-4" />
                       Admin Dashboard
                     </Button>
                   </TooltipTrigger>

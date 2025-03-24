@@ -12,6 +12,7 @@ import {
   integer,
   index,
   vector,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { VECTOR_DB_CONFIG } from '../config';
 import type { AdapterAccountType } from 'next-auth/adapters';
@@ -76,13 +77,13 @@ export const ticketQuestionEmbeddings = pgTable(
   {
     id: uuid().notNull().defaultRandom().primaryKey(),
     // optional ticketId to resolve question
-    ticketId: uuid().references(() => ticket.id),
+    ticketId: uuid().references(() => ticket.id, { onDelete: 'cascade' }),
     embedding: vector('embedding', {
       dimensions: VECTOR_DB_CONFIG.vectorDimension,
     }),
     metadata: json(),
     content: text().notNull(),
-    createdAt: timestamp().notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
     idx: index('ticket_question_embeddings_vector_idx').using(
@@ -97,16 +98,20 @@ export const ticketAnswerEmbeddings = pgTable(
   {
     id: uuid().notNull().defaultRandom().primaryKey(),
     // optional ticketId to resolve question
-    ticketId: uuid().references(() => ticket.id),
+    ticketId: uuid().references(() => ticket.id, { onDelete: 'set null' }),
     embedding: vector('embedding', {
       dimensions: VECTOR_DB_CONFIG.vectorDimension,
     }),
-    source: text(),
+    source: text()
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID()),
     metadata: json(),
     content: text().notNull(),
-    createdAt: timestamp().notNull(),
+    updatedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
+    uniqueSource: uniqueIndex('unique_source').on(table.source),
     idx: index('ticket_answer_embeddings_vector_idx').using(
       'hnsw',
       table.embedding.op('vector_cosine_ops'),
@@ -194,7 +199,7 @@ export const document = pgTable('document', {
   createdAt: timestamp().notNull(),
   title: text().notNull(),
   content: text(),
-  kind: varchar({ enum: ['text', 'code', 'image', 'sheet', 'ticket'] })
+  kind: varchar({ enum: ['text', 'code', 'image', 'sheet'] })
     .notNull()
     .default('text'),
   userId: text()

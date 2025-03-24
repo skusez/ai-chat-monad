@@ -1,32 +1,32 @@
-import type { NextAuthConfig, User } from "next-auth";
-import Google from "next-auth/providers/google";
-import Credentials from "next-auth/providers/credentials";
-import { compare } from "bcrypt-ts";
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { user } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import type { NextAuthConfig, User } from 'next-auth';
+import Google from 'next-auth/providers/google';
+import Credentials from 'next-auth/providers/credentials';
+import { compare } from 'bcrypt-ts';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { user } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 if (!process.env.AUTH_GOOGLE_ID || !process.env.AUTH_GOOGLE_SECRET) {
-  throw new Error("AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET must be set");
+  throw new Error('AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET must be set');
 }
 
 export const authConfig = {
   pages: {
-    signIn: "/login",
-    newUser: "/",
+    signIn: '/login',
+    newUser: '/',
   },
 
   providers: [
     Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
     Credentials({
-      name: "Email",
+      name: 'Email',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
         const { email, password } = credentials as {
@@ -40,7 +40,7 @@ export const authConfig = {
 
         try {
           // Connect to the database
-          const client = postgres(process.env.DATABASE_URL!);
+          const client = postgres(`${process.env.DATABASE_URL}`);
           const db = drizzle(client);
 
           // Find the user by email
@@ -82,7 +82,7 @@ export const authConfig = {
             isAdmin: foundUser.isAdmin,
           } as User;
         } catch (error) {
-          console.error("Authentication error:", error);
+          console.error('Authentication error:', error);
           return null;
         }
       },

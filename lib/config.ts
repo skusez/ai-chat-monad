@@ -29,7 +29,7 @@ export const VECTOR_DB_CONFIG = {
   // Dimension of the vector embeddings
   vectorDimension: 1536,
   // Similarity threshold for RAG queries
-  similarityThreshold: 0.75,
+  similarityThreshold: 0.85,
   // Maximum number of results to return from vector search
   maxResults: 5,
 };

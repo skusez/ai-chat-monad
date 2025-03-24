@@ -1,9 +1,11 @@
 import {
-  type Message,
+  type CoreMessage,
   createDataStreamResponse,
   smoothStream,
   streamText,
 } from 'ai';
+
+import type { Message } from '@ai-sdk/react';
 
 import { auth } from '@/app/(auth)/auth';
 import { aiProvider } from '@/lib/ai/models';
@@ -31,7 +33,7 @@ import { getInformation } from '@/lib/ai/tools/get-information';
 import { getTickets } from '@/lib/ai/tools/get-tickets';
 import type { Chat } from '@/lib/db/schema';
 import { addInformation } from '@/lib/ai/tools/add-information';
-import { deleteTickets } from '@/lib/ai/tools/delete-tickets';
+import { resolveTickets } from '@/lib/ai/tools/delete-tickets';
 
 export const maxDuration = 60;
 
@@ -129,10 +131,10 @@ export async function POST(request: Request) {
           : systemPrompt({
               selectedChatModel,
             }),
-        messages,
+        messages: messages as CoreMessage[],
         maxSteps: 5,
         experimental_activeTools: isAdmin
-          ? ['getInformation', 'getTickets', 'addInformation', 'deleteTickets']
+          ? ['getInformation', 'getTickets', 'addInformation', 'resolveTickets']
           : ['getInformation', 'createTicket'],
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
@@ -149,12 +151,13 @@ export async function POST(request: Request) {
           }),
           addInformation: addInformation({
             session,
+            dataStream,
           }),
           getTickets: getTickets({
             session,
             dataStream,
           }),
-          deleteTickets: deleteTickets({
+          resolveTickets: resolveTickets({
             session,
             dataStream,
           }),

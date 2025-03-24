@@ -8,7 +8,7 @@ import { type DataStreamWriter, tool } from 'ai';
 import type { Session } from 'next-auth';
 import { z } from 'zod';
 
-export const deleteTickets = ({
+export const resolveTickets = ({
   session,
   dataStream,
 }: {
@@ -16,7 +16,8 @@ export const deleteTickets = ({
   dataStream: DataStreamWriter;
 }) =>
   tool({
-    description: 'Delete the tickets and give a reason for deleting the ticket',
+    description:
+      'Resolve the tickets and give a reason for resolving the ticket',
     parameters: z.object({
       tickets: z.array(
         z.object({
@@ -54,7 +55,6 @@ export const deleteTickets = ({
           const result = await ragSearch({
             query: ticket.question,
             limit: 1,
-            threshold: 0.75,
           });
 
           if (result.length > 0) {

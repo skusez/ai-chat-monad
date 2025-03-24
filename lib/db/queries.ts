@@ -137,8 +137,7 @@ export async function saveMessages({
   try {
     return await db.insert(isAdmin ? adminMessage : message).values(messages);
   } catch (error) {
-    console.error('Failed to save messages in database', error, messages);
-    throw error;
+    console.error('Failed to save messages in database', error, { messages });
   }
 }
 

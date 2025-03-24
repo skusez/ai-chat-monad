@@ -32,7 +32,6 @@ export const createTicket = ({
       const [existingTicket] = await searchSimilarTicketQuestions({
         query: question,
         limit: 1,
-        threshold: 0.9,
       });
 
       console.log('existingTicket', existingTicket);

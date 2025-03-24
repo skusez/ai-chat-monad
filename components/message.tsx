@@ -1,31 +1,34 @@
-"use client";
+'use client';
 
-import type { ChatRequestOptions, Message } from "ai";
-import cx from "classnames";
-import { AnimatePresence, motion } from "framer-motion";
-import { memo, useState } from "react";
+import cx from 'classnames';
+import { AnimatePresence, motion } from 'framer-motion';
+import { memo, useState } from 'react';
 
-import type { Vote } from "@/lib/db/schema";
+import type { Vote } from '@/lib/db/schema';
 
-import { DocumentToolCall, DocumentToolResult } from "./document";
-import { PencilEditIcon, SparklesIcon } from "./icons";
-import { Markdown } from "./markdown";
-import { MessageActions } from "./message-actions";
-import { PreviewAttachment } from "./preview-attachment";
-import { Weather } from "./weather";
-import equal from "fast-deep-equal";
-import { cn } from "@/lib/utils";
-import { Button } from "./ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { MessageEditor } from "./message-editor";
-import { DocumentPreview } from "./document-preview";
-import { MessageReasoning } from "./message-reasoning";
+import { DocumentToolCall, DocumentToolResult } from './document';
+import { PencilEditIcon, SparklesIcon } from './icons';
+import { Markdown } from './markdown';
+import { MessageActions } from './message-actions';
+import { PreviewAttachment } from './preview-attachment';
+import { Weather } from './weather';
+import equal from 'fast-deep-equal';
+import { cn } from '@/lib/utils';
+import { Button } from './ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { MessageEditor } from './message-editor';
+import { DocumentPreview } from './document-preview';
+import { MessageReasoning } from './message-reasoning';
+import { AddInformationDisplay } from './add-information-display';
+import { GetTicketsDisplay } from './get-tickets-display';
+import type { UseChatHelpers } from '@ai-sdk/react';
 
 const PurePreviewMessage = ({
   chatId,
   message,
   vote,
   isLoading,
+  append,
   setMessages,
   reload,
   isReadonly,
@@ -33,20 +36,17 @@ const PurePreviewMessage = ({
   isAdminMessage = false,
 }: {
   chatId: string;
-  message: Message;
+  message: UseChatHelpers['messages'][number];
   vote: Vote | undefined;
+  append: UseChatHelpers['append'];
   isLoading: boolean;
-  setMessages: (
-    messages: Message[] | ((messages: Message[]) => Message[])
-  ) => void;
-  reload: (
-    chatRequestOptions?: ChatRequestOptions
-  ) => Promise<string | null | undefined>;
+  setMessages: UseChatHelpers['setMessages'];
+  reload: UseChatHelpers['reload'];
   isReadonly: boolean;
   isAdmin?: boolean;
   isAdminMessage?: boolean;
 }) => {
-  const [mode, setMode] = useState<"view" | "edit">("view");
+  const [mode, setMode] = useState<'view' | 'edit'>('view');
 
   return (
     <AnimatePresence>
@@ -58,14 +58,14 @@ const PurePreviewMessage = ({
       >
         <div
           className={cn(
-            "flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl",
+            'flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl',
             {
-              "w-full": mode === "edit",
-              "group-data-[role=user]/message:w-fit": mode !== "edit",
-            }
+              'w-full': mode === 'edit',
+              'group-data-[role=user]/message:w-fit': mode !== 'edit',
+            },
           )}
         >
-          {message.role === "assistant" && (
+          {message.role === 'assistant' && (
             <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
               <div className="translate-y-px">
                 <SparklesIcon size={14} />
@@ -92,16 +92,16 @@ const PurePreviewMessage = ({
               />
             )}
 
-            {(message.content || message.reasoning) && mode === "view" && (
+            {(message.content || message.reasoning) && mode === 'view' && (
               <div className="flex flex-row gap-2 items-start">
-                {message.role === "user" && !isReadonly && !isAdmin && (
+                {message.role === 'user' && !isReadonly && !isAdmin && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
                         className="px-2 h-fit rounded-full text-muted-foreground opacity-0 group-hover/message:opacity-100"
                         onClick={() => {
-                          setMode("edit");
+                          setMode('edit');
                         }}
                       >
                         <PencilEditIcon />
@@ -112,10 +112,10 @@ const PurePreviewMessage = ({
                 )}
 
                 <div
-                  className={cn("flex flex-col gap-4", {
-                    "bg-primary text-primary-foreground px-3 py-2 rounded-3xl":
-                      message.role === "user",
-                    "bg-accent text-primary-foreground px-3 py-2 rounded-3xl":
+                  className={cn('flex flex-col gap-4', {
+                    'bg-primary text-primary-foreground px-3 py-2 rounded-3xl':
+                      message.role === 'user',
+                    'bg-accent text-primary-foreground px-3 py-2 rounded-3xl':
                       isAdminMessage,
                   })}
                 >
@@ -124,7 +124,7 @@ const PurePreviewMessage = ({
               </div>
             )}
 
-            {message.content && mode === "edit" && !isAdmin && (
+            {message.content && mode === 'edit' && !isAdmin && (
               <div className="flex flex-row gap-2 items-start">
                 <div className="size-8" />
 
@@ -142,61 +142,78 @@ const PurePreviewMessage = ({
               <div className="flex flex-col gap-4">
                 {message.toolInvocations.map((toolInvocation) => {
                   const { toolName, toolCallId, state, args } = toolInvocation;
-                  console.log({ toolName });
-                  if (state === "result") {
+
+                  if (state === 'result') {
                     const { result } = toolInvocation;
 
                     return (
                       <div key={toolCallId}>
-                        {toolName === "getWeather" ? (
+                        {toolName === 'getWeather' ? (
                           <Weather weatherAtLocation={result} />
-                        ) : toolName === "createDocument" ? (
+                        ) : toolName === 'createDocument' ? (
                           <DocumentPreview
                             isReadonly={isReadonly}
                             result={result}
                           />
-                        ) : toolName === "updateDocument" ? (
+                        ) : toolName === 'updateDocument' ? (
                           <DocumentToolResult
                             type="update"
                             result={result}
                             isReadonly={isReadonly}
                           />
-                        ) : toolName === "requestSuggestions" ? (
+                        ) : toolName === 'requestSuggestions' ? (
                           <DocumentToolResult
                             type="request-suggestions"
                             result={result}
                             isReadonly={isReadonly}
                           />
+                        ) : toolName === 'addInformation' ? (
+                          <AddInformationDisplay
+                            state="result"
+                            args={args}
+                            result={result}
+                          />
+                        ) : toolName === 'getTickets' ? (
+                          <GetTicketsDisplay result={result} append={append} />
                         ) : (
                           <></>
-                          // <pre>{JSON.stringify(result, null, 2)}</pre>
                         )}
                       </div>
                     );
                   }
+
+                  // For the call state, we can show a loading indicator for getTickets
                   return (
                     <div
                       key={toolCallId}
                       className={cx({
-                        skeleton: ["getWeather"].includes(toolName),
+                        skeleton: ['getWeather', 'getTickets'].includes(
+                          toolName,
+                        ),
                       })}
                     >
-                      {toolName === "getWeather" ? (
+                      {toolName === 'getWeather' ? (
                         <Weather />
-                      ) : toolName === "createDocument" ? (
+                      ) : toolName === 'createDocument' ? (
                         <DocumentPreview isReadonly={isReadonly} args={args} />
-                      ) : toolName === "updateDocument" ? (
+                      ) : toolName === 'updateDocument' ? (
                         <DocumentToolCall
                           type="update"
                           args={args}
                           isReadonly={isReadonly}
                         />
-                      ) : toolName === "requestSuggestions" ? (
+                      ) : toolName === 'requestSuggestions' ? (
                         <DocumentToolCall
                           type="request-suggestions"
                           args={args}
                           isReadonly={isReadonly}
                         />
+                      ) : toolName === 'addInformation' ? (
+                        <AddInformationDisplay state="call" args={args} />
+                      ) : toolName === 'getTickets' ? (
+                        <div className="w-full border rounded-xl p-4 text-center text-zinc-500">
+                          Loading tickets...
+                        </div>
                       ) : null}
                     </div>
                   );
@@ -230,18 +247,18 @@ export const PreviewMessage = memo(
     if (
       !equal(
         prevProps.message.toolInvocations,
-        nextProps.message.toolInvocations
+        nextProps.message.toolInvocations,
       )
     )
       return false;
     if (!equal(prevProps.vote, nextProps.vote)) return false;
 
     return true;
-  }
+  },
 );
 
 export const ThinkingMessage = () => {
-  const role = "assistant";
+  const role = 'assistant';
 
   return (
     <motion.div
@@ -252,10 +269,10 @@ export const ThinkingMessage = () => {
     >
       <div
         className={cx(
-          "flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl",
+          'flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl',
           {
-            "group-data-[role=user]/message:bg-muted": true,
-          }
+            'group-data-[role=user]/message:bg-muted': true,
+          },
         )}
       >
         <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border">

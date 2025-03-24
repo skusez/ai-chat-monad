@@ -17,7 +17,9 @@ export type DataStreamDelta = {
     | 'suggestion'
     | 'clear'
     | 'finish'
-    | 'kind';
+    | 'kind'
+    | 'crawl-started'
+    | 'crawl-finished';
   content: string | Suggestion;
 };
 
@@ -76,6 +78,20 @@ export function DataStreamHandler({ id }: { id: string }) {
             return {
               ...draftArtifact,
               content: '',
+              status: 'streaming',
+            };
+
+          case 'crawl-started':
+            return {
+              ...draftArtifact,
+              content: `${draftArtifact.content}\n\nCrawling started...`,
+              status: 'streaming',
+            };
+
+          case 'crawl-finished':
+            return {
+              ...draftArtifact,
+              content: `${draftArtifact.content}\n\n${delta.content as string}`,
               status: 'streaming',
             };
 

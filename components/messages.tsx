@@ -1,21 +1,21 @@
-import type { ChatRequestOptions, Message } from "ai";
-import { PreviewMessage, ThinkingMessage } from "./message";
-import { useScrollToBottom } from "./use-scroll-to-bottom";
-import { Overview } from "./overview";
-import { memo } from "react";
-import type { Vote } from "@/lib/db/schema";
-import equal from "fast-deep-equal";
+import type { ChatRequestOptions } from 'ai';
+import { PreviewMessage, ThinkingMessage } from './message';
+import { useScrollToBottom } from './use-scroll-to-bottom';
+import { Overview } from './overview';
+import { memo } from 'react';
+import type { Vote } from '@/lib/db/schema';
+import equal from 'fast-deep-equal';
+import type { UseChatHelpers } from '@ai-sdk/react';
 
 interface MessagesProps {
   chatId: string;
   isLoading: boolean;
   votes: Array<Vote> | undefined;
-  messages: Array<Message>;
-  setMessages: (
-    messages: Message[] | ((messages: Message[]) => Message[])
-  ) => void;
+  messages: UseChatHelpers['messages'];
+  setMessages: UseChatHelpers['setMessages'];
+  append: UseChatHelpers['append'];
   reload: (
-    chatRequestOptions?: ChatRequestOptions
+    chatRequestOptions?: ChatRequestOptions,
   ) => Promise<string | null | undefined>;
   isReadonly: boolean;
   isArtifactVisible: boolean;
@@ -27,6 +27,7 @@ function PureMessages({
   isLoading,
   votes,
   messages,
+  append,
   setMessages,
   reload,
   isReadonly,
@@ -44,6 +45,7 @@ function PureMessages({
 
       {messages.map((message, index) => (
         <PreviewMessage
+          append={append}
           isAdmin={isAdmin}
           key={message.id}
           chatId={chatId}
@@ -62,7 +64,7 @@ function PureMessages({
 
       {isLoading &&
         messages.length > 0 &&
-        messages[messages.length - 1].role === "user" && <ThinkingMessage />}
+        messages[messages.length - 1].role === 'user' && <ThinkingMessage />}
 
       <div
         ref={messagesEndRef}

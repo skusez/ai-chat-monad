@@ -49,6 +49,7 @@ export async function ragSearch({
         content: ticketAnswerEmbeddings.content,
         metadata: ticketAnswerEmbeddings.metadata,
         similarity,
+        source: ticketAnswerEmbeddings.source,
       })
       .from(ticketAnswerEmbeddings)
       .where(gt(similarity, threshold))
@@ -226,14 +227,27 @@ export async function saveTicketAnswerEmbedding({
   metadata = {},
 }: Omit<TicketAnswerEmbeddingInsert, 'createdAt'>) {
   try {
-    return await db.insert(ticketAnswerEmbeddings).values({
-      ticketId,
-      embedding,
-      content,
-      source,
-      metadata,
-      createdAt: new Date(),
-    });
+    return await db
+      .insert(ticketAnswerEmbeddings)
+      .values({
+        ticketId,
+        embedding,
+        content,
+        source,
+        metadata,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: ticketAnswerEmbeddings.source,
+        set: {
+          content,
+          embedding,
+          metadata,
+          updatedAt: new Date(),
+          ticketId,
+        },
+      });
   } catch (error) {
     console.error('Failed to save ticket embedding', error);
     throw error;

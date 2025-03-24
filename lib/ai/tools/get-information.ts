@@ -12,7 +12,7 @@ export const getInformation = ({
 }) =>
   tool({
     description:
-      'get information from your knowledge base to answer the question. Transform any questions to statements to optimize rag performance.',
+      'Gets information from our knowledge base to answer the query.',
     parameters: z.object({
       query: z.string().describe('the users question in statement form.'),
     }),
@@ -29,8 +29,6 @@ export const getInformation = ({
       if (!information) {
         return 'No information was found. Continue with the next step.';
       }
-
-      console.log('information', information);
 
       return information;
     },

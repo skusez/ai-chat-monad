@@ -5,8 +5,7 @@ import {
   useContext,
   useState,
 } from "react";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
-import { useTheme as useNextTheme } from "next-themes";
+import { ThemeProvider as NextThemesProvider , useTheme as useNextTheme } from "next-themes";
 import type { ThemeProviderProps } from "next-themes/dist/types";
 import { type ThemeConfig, themeConfig, } from "@/lib/theme-config";
 
