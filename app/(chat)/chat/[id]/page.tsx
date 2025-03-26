@@ -8,6 +8,7 @@ import { convertToUIMessages } from '@/lib/utils';
 import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DEFAULT_LANGUAGE_MODEL } from '@/lib/ai/models';
 import type { UIMessage } from '@ai-sdk/ui-utils';
+import { setChatAnswerRead } from '@/lib/redis';
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -21,11 +22,11 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const session = await auth();
 
   if (chat.visibility === 'private') {
-    if (!session || !session.user) {
+    if (!session) {
       return notFound();
     }
 
-    if (session.user.id !== chat.userId) {
+    if (session.user?.id !== chat.userId) {
       return notFound();
     }
   }
@@ -38,6 +39,14 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies();
   const chatModelId =
     cookieStore.get('chat-model')?.value || DEFAULT_LANGUAGE_MODEL;
+
+  // Mark chat as read by removing it from Redis when the owner views it
+  if (session?.user?.id === chat.userId) {
+    setChatAnswerRead({
+      userId: chat.userId,
+      chatId: id,
+    }).catch((e) => console.error('Failed to mark chat as read:', e));
+  }
 
   return (
     <>

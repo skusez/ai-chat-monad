@@ -1,12 +1,11 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { Chat } from '@/components/chat';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { convertToUIMessages } from '@/lib/utils';
 import { DataStreamHandler } from '@/components/data-stream-handler';
-import { DEFAULT_LANGUAGE_MODEL } from '@/lib/ai/models';
 import type { UseChatHelpers } from '@ai-sdk/react';
+import { ADMIN_DEFAULT_LANGUAGE_MODEL } from '@/lib/ai/models';
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -22,9 +21,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     isAdmin: true,
   });
 
-  const cookieStore = await cookies();
-  const chatModelId =
-    cookieStore.get('chat-model')?.value || DEFAULT_LANGUAGE_MODEL;
+  const chatModelId = ADMIN_DEFAULT_LANGUAGE_MODEL;
 
   return (
     <>
@@ -36,6 +33,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         selectedChatModel={chatModelId}
         selectedVisibilityType={'private'}
         isReadonly={false}
+        isAdmin={true}
       />
       <DataStreamHandler id={id} />
     </>

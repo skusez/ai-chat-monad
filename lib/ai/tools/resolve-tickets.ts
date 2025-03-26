@@ -7,6 +7,7 @@ import { ragSearch } from '@/lib/db/vector';
 import { type DataStreamWriter, tool } from 'ai';
 import type { Session } from 'next-auth';
 import { z } from 'zod';
+import { tryCatch } from '@/lib/utils';
 
 export const resolveTickets = ({
   session,
@@ -16,37 +17,51 @@ export const resolveTickets = ({
   dataStream: DataStreamWriter;
 }) =>
   tool({
-    description:
-      'Resolve the tickets and give a reason for resolving the ticket',
+    description: 'Resolve one or more tickets',
     parameters: z.object({
-      tickets: z.array(
-        z.object({
-          ticketId: z.string().describe('The ticketId to delete'),
-          resolved: z.boolean().describe('Whether the ticket is resolved'),
-        }),
-      ),
+      ticketIds: z.array(z.string()).describe('The ticketIds to resolve'),
     }),
-    execute: async ({ tickets }) => {
+    execute: async ({ ticketIds }) => {
       if (!session.user?.id) {
-        throw new Error('User not found');
+        throw 'User not found';
+      }
+      if (!session.user.isAdmin) {
+        throw 'Admin permissions required';
       }
 
-      dataStream.writeData({
-        type: 'getting-tickets',
-        content: ``,
+      // Convert single ticket ID to array for consistent processing
+      const ids = Array.isArray(ticketIds) ? ticketIds : [ticketIds];
+
+      if (ids.length === 0) {
+        return { error: 'No ticket IDs provided', success: false };
+      }
+
+      // Notify client of processing
+      dataStream?.writeData({
+        type: 'processing-status',
+        content: `Resolving ${ids.length} ticket(s)...`,
+        toolCallId: 'resolveTickets',
       });
 
       // get the full tickets from the database
-      const resolvedTickets = await getTicketsByIds(
-        tickets
-          .filter((ticket) => ticket.resolved)
-          .map((ticket) => ticket.ticketId),
-      );
+      const [resolvedTickets, error] = await tryCatch(getTicketsByIds(ids));
 
-      dataStream.writeData({
-        type: 'notifying-users',
-        content: ``,
-      });
+      if (error) {
+        return {
+          content: `Failed to resolve tickets: ${error.message}`,
+        };
+      }
+
+      if (!resolvedTickets) {
+        return {
+          content: `Ticked ID does not exist`,
+        };
+      }
+
+      // dataStream.writeData({
+      //   type: 'notifying-users',
+      //   content: ``,
+      // });
 
       await Promise.all(
         //   TODO in here, maybe can maintain embeddings for reasons question wasnt answered, so next time the same question doesnt create a ticket
@@ -68,13 +83,13 @@ export const resolveTickets = ({
         }),
       );
 
-      dataStream.writeData({
-        type: 'deleting-tickets',
-        content: ``,
-      });
+      // dataStream.writeData({
+      //   type: 'deleting-tickets',
+      //   content: ``,
+      // });
 
       await deleteTicketsByIds({
-        ticketIds: tickets.map((ticket) => ticket.ticketId),
+        ticketIds: ids,
       });
 
       return {

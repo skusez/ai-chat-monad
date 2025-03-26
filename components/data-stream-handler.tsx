@@ -1,6 +1,6 @@
 'use client';
 
-import { useChat } from 'ai/react';
+import { useChat } from '@ai-sdk/react';
 import { useEffect, useRef } from 'react';
 import { artifactDefinitions, type ArtifactKind } from './artifact';
 import type { Suggestion } from '@/lib/db/schema';
@@ -19,7 +19,9 @@ export type DataStreamDelta = {
     | 'finish'
     | 'kind'
     | 'crawl-started'
-    | 'crawl-finished';
+    | 'crawl-finished'
+    | 'crawl-status'
+    | 'processing-status';
   content: string | Suggestion;
 };
 
@@ -84,14 +86,20 @@ export function DataStreamHandler({ id }: { id: string }) {
           case 'crawl-started':
             return {
               ...draftArtifact,
-              content: `${draftArtifact.content}\n\nCrawling started...`,
+              content: delta.content as string,
               status: 'streaming',
             };
 
           case 'crawl-finished':
             return {
               ...draftArtifact,
-              content: `${draftArtifact.content}\n\n${delta.content as string}`,
+              content: delta.content as string,
+              status: 'streaming',
+            };
+          case 'crawl-status':
+            return {
+              ...draftArtifact,
+              content: delta.content as string,
               status: 'streaming',
             };
 
@@ -101,6 +109,12 @@ export function DataStreamHandler({ id }: { id: string }) {
               status: 'idle',
             };
 
+          case 'processing-status':
+            return {
+              ...draftArtifact,
+              content: delta.content as string,
+              status: 'streaming',
+            };
           default:
             return draftArtifact;
         }

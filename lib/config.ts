@@ -24,12 +24,10 @@ export const TOKEN_LIMITS = {
 
 // Vector database configuration
 export const VECTOR_DB_CONFIG = {
-  // Table name for storing vector embeddings
-  tableName: 'document_embeddings',
   // Dimension of the vector embeddings
   vectorDimension: 1536,
   // Similarity threshold for RAG queries
-  similarityThreshold: 0.85,
+  similarityThreshold: 0.9,
   // Maximum number of results to return from vector search
   maxResults: 5,
 };
@@ -42,6 +40,8 @@ export const REDIS_CONFIG = {
   tokenUsageExpiration: 86400,
   // Key for storing rate limit information
   rateLimitKey: 'rate_limit:',
+  // Prefix for chat notifications
+  chatNotificationsPrefix: 'chat_notifications:',
 };
 
 // Chat models configuration
@@ -51,7 +51,7 @@ export const CHAT_MODELS_CONFIG = {
   // Token cost multipliers for different models
   tokenCostMultipliers: {
     'chat-model-small': 1,
-    'chat-model-large': 2,
+    'chat-model-medium': 2,
     'chat-model-reasoning': 3,
   },
 };

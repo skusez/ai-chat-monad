@@ -1,6 +1,7 @@
 import { ragSearch } from '@/lib/db/vector';
 import { type DataStreamWriter, tool } from 'ai';
 import type { Session } from 'next-auth';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 export const getInformation = ({
@@ -12,24 +13,37 @@ export const getInformation = ({
 }) =>
   tool({
     description:
-      'Gets information from our knowledge base to answer the query.',
+      'get information from our knowledge base to answer the question.',
     parameters: z.object({
-      query: z.string().describe('the users question in statement form.'),
+      question: z.string().describe('the question optimized for rag search.'),
     }),
-    execute: async ({ query }) => {
+    execute: async ({ question }) => {
       if (!session.user?.id) {
-        throw new Error('User not found');
+        redirect('/api/auth/signin');
       }
 
+      dataStream.writeData({
+        type: 'text',
+        text: 'Searching for information...',
+      });
+
       const [information] = await ragSearch({
-        query,
+        query: question,
         limit: 4,
       });
 
       if (!information) {
-        return 'No information was found. Continue with the next step.';
+        return {
+          content: 'No information was found.',
+        };
       }
 
-      return information;
+      return {
+        content: {
+          ticketId: information.ticketId,
+          answer: information.content,
+          source: information.source,
+        },
+      };
     },
   });

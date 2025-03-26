@@ -1,9 +1,17 @@
-import { Redis } from "ioredis";
-import { REDIS_CONFIG, TOKEN_LIMITS } from "./config";
+import { createClient } from '@redis/client';
+import { REDIS_CONFIG, TOKEN_LIMITS } from './config';
 
 // Initialize Redis client
-// biome-ignore lint: Forbidden non-null assertion.
-const redis = new Redis(process.env.REDIS_URL!);
+if (!process.env.REDIS_URL) {
+  throw new Error('REDIS_URL is not set');
+}
+const redis = createClient({
+  url: process.env.REDIS_URL,
+});
+
+redis.connect().catch((err) => {
+  console.error('Redis connection error:', err);
+});
 
 // Function to track token usage
 export async function trackTokenUsage({
@@ -32,7 +40,7 @@ export async function trackTokenUsage({
 
     return { success: true, currentUsage: newUsage };
   } catch (error) {
-    console.error("Failed to track token usage", error);
+    console.error('Failed to track token usage', error);
     return { success: false, error };
   }
 }
@@ -40,10 +48,10 @@ export async function trackTokenUsage({
 // Function to check if user has exceeded their token limit
 export async function checkTokenLimit({
   userId,
-  userTier = "free",
+  userTier = 'free',
 }: {
   userId: string;
-  userTier?: "free" | "premium";
+  userTier?: 'free' | 'premium';
 }) {
   try {
     const key = `${REDIS_CONFIG.tokenUsagePrefix}${userId}`;
@@ -54,7 +62,7 @@ export async function checkTokenLimit({
     }
 
     const limit =
-      userTier === "premium"
+      userTier === 'premium'
         ? TOKEN_LIMITS.premiumDailyLimit
         : TOKEN_LIMITS.defaultDailyLimit;
 
@@ -67,7 +75,7 @@ export async function checkTokenLimit({
       remaining: Math.max(0, limit - usage),
     };
   } catch (error) {
-    console.error("Failed to check token limit", error);
+    console.error('Failed to check token limit', error);
     // Default to allowing the request in case of error
     return { hasExceededLimit: false, error };
   }
@@ -77,11 +85,11 @@ export async function checkTokenLimit({
 export async function rateLimitRequest({
   userId,
   requestTokens,
-  userTier = "free",
+  userTier = 'free',
 }: {
   userId: string;
   requestTokens: number;
-  userTier?: "free" | "premium";
+  userTier?: 'free' | 'premium';
 }) {
   try {
     // Check if the user has exceeded their token limit
@@ -98,7 +106,7 @@ export async function rateLimitRequest({
     if (hasExceededLimit) {
       return {
         allowed: false,
-        reason: "Token limit exceeded",
+        reason: 'Token limit exceeded',
         currentUsage,
         limit,
       };
@@ -108,7 +116,7 @@ export async function rateLimitRequest({
     if (remaining && requestTokens > remaining) {
       return {
         allowed: false,
-        reason: "Request would exceed token limit",
+        reason: 'Request would exceed token limit',
         currentUsage,
         limit,
         remaining,
@@ -119,7 +127,7 @@ export async function rateLimitRequest({
     if (requestTokens > TOKEN_LIMITS.maxTokensPerRequest) {
       return {
         allowed: false,
-        reason: "Request exceeds maximum tokens per request",
+        reason: 'Request exceeds maximum tokens per request',
         maxTokensPerRequest: TOKEN_LIMITS.maxTokensPerRequest,
       };
     }
@@ -131,7 +139,7 @@ export async function rateLimitRequest({
       remaining: remaining ? remaining - requestTokens : undefined,
     };
   } catch (error) {
-    console.error("Failed to rate limit request", error);
+    console.error('Failed to rate limit request', error);
     // Default to allowing the request in case of error
     return { allowed: true, error };
   }
@@ -144,7 +152,7 @@ export async function resetTokenUsage(userId: string) {
     await redis.del(key);
     return { success: true };
   } catch (error) {
-    console.error("Failed to reset token usage", error);
+    console.error('Failed to reset token usage', error);
     return { success: false, error };
   }
 }
@@ -182,9 +190,59 @@ export async function creditTokens({
       creditAmount: usage - newUsage, // Actual amount credited (may be less than amount if usage was < amount)
     };
   } catch (error) {
-    console.error("Failed to credit tokens", error);
+    console.error('Failed to credit tokens', error);
     return { success: false, error };
   }
 }
 
 export default redis;
+
+export async function getChatNotificationsByUserId({
+  userId,
+}: {
+  userId: string;
+}) {
+  try {
+    const key = `${REDIS_CONFIG.chatNotificationsPrefix}${userId}`;
+    const notifications = await redis.hGetAll(key);
+    console.log('notifications', notifications);
+    return notifications;
+  } catch (error) {
+    console.error('Failed to get chat notifications', error);
+    return null;
+  }
+}
+
+export async function setChatAnswerRead({
+  userId,
+  chatId,
+}: { userId: string; chatId: string }) {
+  try {
+    const key = `${REDIS_CONFIG.chatNotificationsPrefix}${userId}`;
+    // Simply delete the entry when chat is read to keep Redis storage minimal
+    const result = await redis.hDel(key, chatId);
+    console.log('result', result);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set chat answer read', JSON.stringify(error));
+    return { success: false, error };
+  }
+}
+
+export async function setChatNotification({
+  userId,
+  chatId,
+}: {
+  userId: string;
+  chatId: string;
+}) {
+  try {
+    const key = `${REDIS_CONFIG.chatNotificationsPrefix}${userId}`;
+    // Only set to 1 to indicate unread - presence in hash means unread
+    await redis.hSet(key, chatId, '1');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set chat notification', JSON.stringify(error));
+    return { success: false, error };
+  }
+}

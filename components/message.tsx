@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { MessageEditor } from './message-editor';
 import { DocumentPreview } from './document-preview';
 import { MessageReasoning } from './message-reasoning';
-import { AddInformationDisplay } from './add-information-display';
+import { SaveInformationDisplay } from './save-information-display';
 import { GetTicketsDisplay } from './get-tickets-display';
 import type { UseChatHelpers } from '@ai-sdk/react';
 
@@ -32,8 +32,7 @@ const PurePreviewMessage = ({
   setMessages,
   reload,
   isReadonly,
-  isAdmin = false,
-  isAdminMessage = false,
+  isAdmin,
 }: {
   chatId: string;
   message: UseChatHelpers['messages'][number];
@@ -44,7 +43,6 @@ const PurePreviewMessage = ({
   reload: UseChatHelpers['reload'];
   isReadonly: boolean;
   isAdmin?: boolean;
-  isAdminMessage?: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
@@ -115,8 +113,6 @@ const PurePreviewMessage = ({
                   className={cn('flex flex-col gap-4', {
                     'bg-primary text-primary-foreground px-3 py-2 rounded-3xl':
                       message.role === 'user',
-                    'bg-accent text-primary-foreground px-3 py-2 rounded-3xl':
-                      isAdminMessage,
                   })}
                 >
                   <Markdown>{message.content as string}</Markdown>
@@ -138,85 +134,93 @@ const PurePreviewMessage = ({
               </div>
             )}
 
-            {message.toolInvocations && message.toolInvocations.length > 0 && (
+            {message.parts && message.parts.length > 0 && (
               <div className="flex flex-col gap-4">
-                {message.toolInvocations.map((toolInvocation) => {
-                  const { toolName, toolCallId, state, args } = toolInvocation;
+                {message.parts.map((part) => {
+                  if (part.type === 'tool-invocation') {
+                    const { toolName, toolCallId, state, args } =
+                      part.toolInvocation;
 
-                  if (state === 'result') {
-                    const { result } = toolInvocation;
+                    if (state === 'result') {
+                      const { result } = part.toolInvocation;
+                      return (
+                        <div key={toolCallId}>
+                          {toolName === 'getWeather' ? (
+                            <Weather weatherAtLocation={result} />
+                          ) : toolName === 'createDocument' ? (
+                            <DocumentPreview
+                              isReadonly={isReadonly}
+                              result={result}
+                            />
+                          ) : toolName === 'updateDocument' ? (
+                            <DocumentToolResult
+                              type="update"
+                              result={result}
+                              isReadonly={isReadonly}
+                            />
+                          ) : toolName === 'requestSuggestions' ? (
+                            <DocumentToolResult
+                              type="request-suggestions"
+                              result={result}
+                              isReadonly={isReadonly}
+                            />
+                          ) : toolName === 'saveInformation' ? (
+                            <SaveInformationDisplay
+                              state="result"
+                              args={args}
+                              result={result}
+                            />
+                          ) : toolName === 'getTickets' ? (
+                            <GetTicketsDisplay
+                              result={result}
+                              append={append}
+                            />
+                          ) : (
+                            <></>
+                          )}
+                        </div>
+                      );
+                    }
 
+                    // For the call state, we can show a loading indicator for getTickets
                     return (
-                      <div key={toolCallId}>
+                      <div
+                        key={toolCallId}
+                        className={cx({
+                          skeleton: ['getWeather', 'getTickets'].includes(
+                            toolName,
+                          ),
+                        })}
+                      >
                         {toolName === 'getWeather' ? (
-                          <Weather weatherAtLocation={result} />
+                          <Weather />
                         ) : toolName === 'createDocument' ? (
                           <DocumentPreview
                             isReadonly={isReadonly}
-                            result={result}
+                            args={args}
                           />
                         ) : toolName === 'updateDocument' ? (
-                          <DocumentToolResult
+                          <DocumentToolCall
                             type="update"
-                            result={result}
+                            args={args}
                             isReadonly={isReadonly}
                           />
                         ) : toolName === 'requestSuggestions' ? (
-                          <DocumentToolResult
+                          <DocumentToolCall
                             type="request-suggestions"
-                            result={result}
+                            args={args}
                             isReadonly={isReadonly}
                           />
-                        ) : toolName === 'addInformation' ? (
-                          <AddInformationDisplay
-                            state="result"
-                            args={args}
-                            result={result}
-                          />
+                        ) : toolName === 'saveInformation' ? (
+                          <SaveInformationDisplay state="call" args={args} />
                         ) : toolName === 'getTickets' ? (
-                          <GetTicketsDisplay result={result} append={append} />
-                        ) : (
-                          <></>
-                        )}
+                          <div className="w-full border rounded-xl p-4 text-center text-zinc-500">
+                            Loading tickets...
+                          </div>
+                        ) : null}
                       </div>
                     );
                   }
-
-                  // For the call state, we can show a loading indicator for getTickets
-                  return (
-                    <div
-                      key={toolCallId}
-                      className={cx({
-                        skeleton: ['getWeather', 'getTickets'].includes(
-                          toolName,
-                        ),
-                      })}
-                    >
-                      {toolName === 'getWeather' ? (
-                        <Weather />
-                      ) : toolName === 'createDocument' ? (
-                        <DocumentPreview isReadonly={isReadonly} args={args} />
-                      ) : toolName === 'updateDocument' ? (
-                        <DocumentToolCall
-                          type="update"
-                          args={args}
-                          isReadonly={isReadonly}
-                        />
-                      ) : toolName === 'requestSuggestions' ? (
-                        <DocumentToolCall
-                          type="request-suggestions"
-                          args={args}
-                          isReadonly={isReadonly}
-                        />
-                      ) : toolName === 'addInformation' ? (
-                        <AddInformationDisplay state="call" args={args} />
-                      ) : toolName === 'getTickets' ? (
-                        <div className="w-full border rounded-xl p-4 text-center text-zinc-500">
-                          Loading tickets...
-                        </div>
-                      ) : null}
-                    </div>
-                  );
                 })}
               </div>
             )}
@@ -241,16 +245,8 @@ export const PreviewMessage = memo(
   PurePreviewMessage,
   (prevProps, nextProps) => {
     if (prevProps.isLoading !== nextProps.isLoading) return false;
-    if (prevProps.message.reasoning !== nextProps.message.reasoning)
-      return false;
+    if (prevProps.message.parts !== nextProps.message.parts) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
-    if (
-      !equal(
-        prevProps.message.toolInvocations,
-        nextProps.message.toolInvocations,
-      )
-    )
-      return false;
     if (!equal(prevProps.vote, nextProps.vote)) return false;
 
     return true;

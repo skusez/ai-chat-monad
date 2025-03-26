@@ -62,14 +62,14 @@ const PureChatItem = ({
   isActive,
   onDelete,
   setOpenMobile,
-  questionAnsweredCount,
+  isAnswerRead,
   isAdminPage,
 }: {
   chat: Chat;
   isActive: boolean;
   onDelete: (chatId: string) => void;
   setOpenMobile: (open: boolean) => void;
-  questionAnsweredCount: number;
+  isAnswerRead: boolean;
   isAdminPage: boolean;
 }) => {
   const { visibilityType, setVisibilityType } = useChatVisibility({
@@ -78,8 +78,8 @@ const PureChatItem = ({
   });
 
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive} className="relative">
+    <SidebarMenuItem className="relative">
+      <SidebarMenuButton asChild isActive={isActive}>
         <Link
           href={isAdminPage ? `/admin/chat/${chat.id}` : `/chat/${chat.id}`}
           onClick={() => setOpenMobile(false)}
@@ -87,10 +87,10 @@ const PureChatItem = ({
           <span>{chat.title}</span>
         </Link>
       </SidebarMenuButton>
-      {questionAnsweredCount > 0 && (
-        <span className="absolute pointer-events-none -right-0 bg-red-500 rounded-md p-1 size-4 flex items-center justify-center -top-1  text-xs text-white/80 font-semibold">
-          {questionAnsweredCount}
-        </span>
+      {isAnswerRead === false && (
+        <div className="absolute pointer-events-none inset-y-0 right-1.5 size-full flex items-center justify-start">
+          <span className="  bg-red-500 rounded-full size-2" />
+        </div>
       )}
 
       <DropdownMenu modal={true}>
@@ -190,9 +190,12 @@ export function SidebarHistory({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const router = useRouter();
   const handleDelete = async () => {
-    const deletePromise = fetch(`/api/chat?id=${deleteId}`, {
-      method: 'DELETE',
-    });
+    const deletePromise = fetch(
+      `/api/chat?id=${deleteId}&isAdminPage=${isAdminPage}`,
+      {
+        method: 'DELETE',
+      },
+    );
 
     toast.promise(deletePromise, {
       loading: 'Deleting chat...',
@@ -319,7 +322,7 @@ export function SidebarHistory({
                         {groupedChats.today.map((chat) => (
                           <ChatItem
                             isAdminPage={isAdminPage}
-                            questionAnsweredCount={chat.questionAnsweredCount}
+                            isAnswerRead={chat.isAnswerRead}
                             key={chat.id}
                             chat={chat}
                             isActive={chat.id === id}
@@ -341,7 +344,7 @@ export function SidebarHistory({
                         {groupedChats.yesterday.map((chat) => (
                           <ChatItem
                             isAdminPage={isAdminPage}
-                            questionAnsweredCount={chat.questionAnsweredCount}
+                            isAnswerRead={chat.isAnswerRead}
                             key={chat.id}
                             chat={chat}
                             isActive={chat.id === id}
@@ -363,7 +366,7 @@ export function SidebarHistory({
                         {groupedChats.lastWeek.map((chat) => (
                           <ChatItem
                             isAdminPage={isAdminPage}
-                            questionAnsweredCount={chat.questionAnsweredCount}
+                            isAnswerRead={chat.isAnswerRead}
                             key={chat.id}
                             chat={chat}
                             isActive={chat.id === id}
@@ -385,7 +388,7 @@ export function SidebarHistory({
                         {groupedChats.lastMonth.map((chat) => (
                           <ChatItem
                             isAdminPage={isAdminPage}
-                            questionAnsweredCount={chat.questionAnsweredCount}
+                            isAnswerRead={chat.isAnswerRead}
                             key={chat.id}
                             chat={chat}
                             isActive={chat.id === id}
@@ -407,7 +410,7 @@ export function SidebarHistory({
                         {groupedChats.older.map((chat) => (
                           <ChatItem
                             isAdminPage={isAdminPage}
-                            questionAnsweredCount={chat.questionAnsweredCount}
+                            isAnswerRead={chat.isAnswerRead}
                             key={chat.id}
                             chat={chat}
                             isActive={chat.id === id}

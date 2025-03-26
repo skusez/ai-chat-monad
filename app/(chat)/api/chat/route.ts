@@ -32,8 +32,10 @@ import { createTicket } from '@/lib/ai/tools/create-ticket';
 import { getInformation } from '@/lib/ai/tools/get-information';
 import { getTickets } from '@/lib/ai/tools/get-tickets';
 import type { Chat } from '@/lib/db/schema';
-import { addInformation } from '@/lib/ai/tools/add-information';
-import { resolveTickets } from '@/lib/ai/tools/delete-tickets';
+import { saveInformation } from '@/lib/ai/tools/save-information';
+import { resolveTickets } from '@/lib/ai/tools/resolve-tickets';
+import { createDocument } from '@/lib/ai/tools/create-document';
+import { updateDocument } from '@/lib/ai/tools/update-document';
 
 export const maxDuration = 60;
 
@@ -123,7 +125,40 @@ export async function POST(request: Request) {
   });
 
   return createDataStreamResponse({
-    execute: (dataStream) => {
+    execute: async (dataStream) => {
+      const tools = {
+        createTicket: createTicket({
+          session,
+          dataStream,
+          chatId: id,
+          messageId: userMessage.id,
+        }),
+        getInformation: getInformation({
+          session,
+          dataStream,
+        }),
+        saveInformation: saveInformation({
+          session,
+          dataStream,
+        }),
+        getTickets: getTickets({
+          session,
+          dataStream,
+        }),
+        resolveTickets: resolveTickets({
+          session,
+          dataStream,
+        }),
+        createDocument: createDocument({
+          session,
+          dataStream,
+        }),
+        updateDocument: updateDocument({
+          session,
+          dataStream,
+        }),
+      };
+
       const result = streamText({
         model: aiProvider.languageModel(selectedChatModel),
         system: isAdmin
@@ -132,37 +167,29 @@ export async function POST(request: Request) {
               selectedChatModel,
             }),
         messages: messages as CoreMessage[],
-        maxSteps: 5,
+        maxSteps: 10,
         experimental_activeTools: isAdmin
-          ? ['getInformation', 'getTickets', 'addInformation', 'resolveTickets']
-          : ['getInformation', 'createTicket'],
+          ? [
+              'getInformation',
+              'getTickets',
+              'saveInformation',
+              'resolveTickets',
+            ]
+          : [
+              'getInformation',
+              'createTicket',
+              'createDocument',
+              'updateDocument',
+            ],
         experimental_transform: smoothStream({ chunking: 'word' }),
         experimental_generateMessageId: generateUUID,
-        tools: {
-          createTicket: createTicket({
-            session,
-            dataStream,
-            chatId: id,
-            messageId: userMessage.id,
-          }),
-          getInformation: getInformation({
-            session,
-            dataStream,
-          }),
-          addInformation: addInformation({
-            session,
-            dataStream,
-          }),
-          getTickets: getTickets({
-            session,
-            dataStream,
-          }),
-          resolveTickets: resolveTickets({
-            session,
-            dataStream,
-          }),
-        },
-        onFinish: async ({ response, reasoning, usage: { totalTokens } }) => {
+        tools,
+        onFinish: async ({
+          response,
+          reasoning,
+          usage: { totalTokens },
+          steps,
+        }) => {
           if (session.user?.id) {
             try {
               const sanitizedResponseMessages = sanitizeResponseMessages({
@@ -195,21 +222,17 @@ export async function POST(request: Request) {
                 }),
               });
             } catch (error) {
-              console.error('Failed to save chat', error);
+              console.error('Failed to save chat');
             }
           }
-        },
-
-        experimental_telemetry: {
-          isEnabled: true,
-          functionId: 'stream-text',
         },
       });
 
       result.consumeStream();
 
       result.mergeIntoDataStream(dataStream, {
-        sendReasoning: true,
+        // dont send reasoning for admin panel
+        sendReasoning: !isAdmin,
         sendSources: true,
       });
     },
@@ -223,6 +246,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
+  const isAdminPage = searchParams.get('isAdminPage');
+  const isAdmin = isAdminPage === 'true';
 
   if (!id) {
     return new Response('Not Found', { status: 404 });
@@ -235,13 +260,13 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const chat = (await getChatById({ id, isAdmin: false })) as Chat;
+    const chat = (await getChatById({ id, isAdmin })) as Chat;
 
     if (chat.userId !== session.user.id) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    await deleteChatById({ id, isAdmin: false });
+    await deleteChatById({ id, isAdmin });
 
     return new Response('Chat deleted', { status: 200 });
   } catch (error) {

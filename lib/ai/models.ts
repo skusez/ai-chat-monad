@@ -4,7 +4,9 @@ import { groq } from '@ai-sdk/groq';
 
 export const aiProvider = customProvider({
   languageModels: {
+    'chat-model-medium': groq('deepseek-r1-distill-llama-70b'),
     'chat-model-small': groq('llama3-70b-8192'),
+    // 'chat-model-small': openai('gpt-4o-mini'),
   },
   textEmbeddingModels: {
     'text-embedding-3-small': openai.textEmbeddingModel(
@@ -14,6 +16,7 @@ export const aiProvider = customProvider({
 });
 
 export const DEFAULT_LANGUAGE_MODEL = 'chat-model-small';
+export const ADMIN_DEFAULT_LANGUAGE_MODEL = 'chat-model-small';
 export const DEFAULT_TEXT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
 interface ChatModel {

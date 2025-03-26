@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 type CrawlState = 'idle' | 'crawling' | 'finished';
 
-export function AddInformationDisplay({
+export function SaveInformationDisplay({
   state,
   args,
   result,

@@ -29,6 +29,7 @@ import {
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { processTicketQuestionForEmbedding } from './vector';
+import { setChatNotification } from '@/lib/redis';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -105,7 +106,8 @@ export async function getChatsByUserId({
       .select()
       .from(isAdmin ? adminChat : chat)
       .where(eq(isAdmin ? adminChat.userId : chat.userId, id))
-      .orderBy(desc(isAdmin ? adminChat.createdAt : chat.createdAt));
+      .orderBy(desc(isAdmin ? adminChat.createdAt : chat.createdAt))
+      .limit(50);
   } catch (error) {
     console.error('Failed to get chats by user from database');
     throw error;
@@ -496,34 +498,31 @@ export async function notifyUsersSubscribedToTicket({
     const chats = await db
       .select({
         chatId: userTicket.chatId,
+        userId: userTicket.userId,
       })
       .from(userTicket)
       .where(eq(userTicket.ticketId, ticketId));
 
-    // insert a message to their chat
-    await Promise.all([
-      db.insert(message).values(
-        chats.map((chat) => ({
+    // Insert a message to their chat
+    await db.insert(message).values(
+      chats.map((chat) => ({
+        chatId: chat.chatId,
+        role: 'assistant',
+        content: result,
+        createdAt: new Date(),
+        tokenCount: 0,
+      })),
+    );
+
+    // Set notifications in Redis for each user
+    await Promise.all(
+      chats.map((chat) =>
+        setChatNotification({
+          userId: chat.userId,
           chatId: chat.chatId,
-          role: 'assistant',
-          content: result,
-          createdAt: new Date(),
-          tokenCount: 0,
-        })),
+        }),
       ),
-      // set the notification count
-      db
-        .update(chat)
-        .set({
-          questionAnsweredCount: sql`${chat.questionAnsweredCount} + 1`,
-        })
-        .where(
-          inArray(
-            chat.id,
-            chats.map((chat) => chat.chatId),
-          ),
-        ),
-    ]);
+    );
   } catch (error) {
     console.error('Failed to notify users subscribed to ticket in database');
     throw error;
@@ -548,7 +547,6 @@ export async function getTicketsByIds(ticketIds: string[]) {
     return await db.select().from(ticket).where(inArray(ticket.id, ticketIds));
   } catch (error) {
     console.error('Failed to get tickets by ids from database');
-    throw error;
   }
 }
 

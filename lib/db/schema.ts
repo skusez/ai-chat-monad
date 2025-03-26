@@ -44,7 +44,6 @@ export const chat = pgTable('chat', {
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
-  questionAnsweredCount: integer().notNull().default(0),
 });
 
 export const adminChat = pgTable('admin_chat', {
@@ -56,7 +55,9 @@ export const adminChat = pgTable('admin_chat', {
     .references(() => user.id),
 });
 
-export type Chat = InferSelectModel<typeof chat>;
+export type Chat = InferSelectModel<typeof chat> & {
+  isAnswerRead: boolean;
+};
 
 export const ticket = pgTable('ticket', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
